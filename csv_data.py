@@ -65,26 +65,27 @@ class CSVDataManager:
         actual_path = os.path.join(self.csv_dir, folder_path)
         
         if os.path.isfile(actual_path) and actual_path.endswith('.csv'):
-            prompts = self.read_csv_file(actual_path)
+            prompts = self.read_csv_file(actual_path, folder_path)
         elif os.path.isdir(actual_path):
-            prompts = self._read_all_csv_in_dir(actual_path)
+            prompts = self._read_all_csv_in_dir(actual_path, folder_path)
         
         return prompts
     
-    def _read_all_csv_in_dir(self, dir_path):
+    def _read_all_csv_in_dir(self, dir_path, relative_base=""):
         prompts = []
         try:
             for item in sorted(os.listdir(dir_path)):
                 item_path = os.path.join(dir_path, item)
+                item_rel_path = os.path.join(relative_base, item) if relative_base else item
                 if os.path.isfile(item_path) and item.endswith('.csv'):
-                    prompts.extend(self.read_csv_file(item_path))
+                    prompts.extend(self.read_csv_file(item_path, item_rel_path))
                 elif os.path.isdir(item_path):
-                    prompts.extend(self._read_all_csv_in_dir(item_path))
+                    prompts.extend(self._read_all_csv_in_dir(item_path, item_rel_path))
         except Exception as e:
             print(f"Error reading directory {dir_path}: {e}")
         return prompts
     
-    def read_csv_file(self, csv_path):
+    def read_csv_file(self, csv_path, relative_path=""):
         prompts = []
         try:
             with open(csv_path, 'r', encoding='utf-8') as f:
@@ -92,7 +93,8 @@ class CSVDataManager:
                 for row in reader:
                     prompts.append({
                         "title": row.get('title', ''),
-                        "content": row.get('content', '')
+                        "content": row.get('content', ''),
+                        "source": relative_path
                     })
         except FileNotFoundError:
             pass
@@ -196,6 +198,28 @@ class CSVDataManager:
                 return {"success": True}
             else:
                 return {"success": False, "error": "Failed to write CSV file"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    def create_csv_file(self, folder_path, file_name):
+        try:
+            if not file_name.endswith('.csv'):
+                file_name = file_name + '.csv'
+            
+            actual_path = os.path.join(self.csv_dir, folder_path)
+            
+            if not os.path.isdir(actual_path):
+                return {"success": False, "error": "请选择文件夹"}
+            
+            csv_path = os.path.join(actual_path, file_name)
+            
+            if os.path.exists(csv_path):
+                return {"success": False, "error": "文件已存在"}
+            
+            self.write_csv_file(csv_path, [])
+            
+            relative_path = os.path.join(folder_path, file_name) if folder_path else file_name
+            return {"success": True, "path": relative_path}
         except Exception as e:
             return {"success": False, "error": str(e)}
     
