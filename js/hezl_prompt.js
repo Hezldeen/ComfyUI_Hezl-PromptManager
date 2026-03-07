@@ -589,7 +589,7 @@ class HezlPromptWidget {
                             <button class="hezl-btn small" id="hezl-add-csv" title="新建CSV文件">+CSV</button>
                             <button class="hezl-btn small" id="hezl-refresh" title="刷新">↻</button>
                             <button class="hezl-btn small" id="hezl-add-folder" title="添加文件夹">+</button>
-                            <button class="hezl-btn small danger" id="hezl-delete-folder" title="删除文件夹">-</button>
+                            <button class="hezl-btn small danger" id="hezl-delete-folder" title="删除">-</button>
                             <button class="hezl-btn small warning" id="hezl-rename-folder" title="重命名">✎</button>
                         </div>
                     </div>
@@ -1688,19 +1688,60 @@ class HezlPromptWidget {
     
     deleteCurrentFolder() {
         if (!this.currentFolder) {
-            alert('请先选择一个文件夹');
+            alert('请先选择要删除的项目');
             return;
         }
-        this.deleteFolder(this.currentFolder);
+        
+        if (this.currentFolderType === 'csv') {
+            if (!confirm('是否删除此CSV文件？')) {
+                return;
+            }
+            this.deleteCsvFile(this.currentFolder);
+        } else {
+            if (!confirm('是否删除此文件夹？文件夹内的所有内容都将被删除。')) {
+                return;
+            }
+            this.deleteFolder(this.currentFolder);
+        }
+    }
+    
+    async deleteCsvFile(csvPath) {
+        if (!csvPath) {
+            alert('请先选择CSV文件');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/hezl_prompt/delete_csv_file', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    path: csvPath
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.selectedPrompts = this.selectedPrompts.filter(p => p.folder !== csvPath);
+                this.updateFolderCounts();
+                this.renderPreview();
+                this.updateOutput();
+                this.currentFolder = '';
+                this.currentFolderType = '';
+                this.loadFolderStructure();
+                this.promptList.innerHTML = '<div class="hezl-empty-state">请选择左侧分类查看词组</div>';
+            } else {
+                alert('删除失败: ' + result.error);
+            }
+        } catch (error) {
+            alert('删除失败: ' + error.message);
+        }
     }
     
     async deleteFolder(folderPath) {
         if (!folderPath) {
             alert('请先选择一个文件夹');
-            return;
-        }
-        
-        if (!confirm('确定要删除此文件夹吗？文件夹内的所有内容都将被删除。')) {
             return;
         }
         
@@ -1716,7 +1757,16 @@ class HezlPromptWidget {
             const result = await response.json();
             
             if (result.success) {
+                this.selectedPrompts = this.selectedPrompts.filter(p => {
+                    return p.folder !== folderPath && 
+                           !p.folder.startsWith(folderPath + '/') && 
+                           !p.folder.startsWith(folderPath + '\\');
+                });
+                this.updateFolderCounts();
+                this.renderPreview();
+                this.updateOutput();
                 this.currentFolder = '';
+                this.currentFolderType = '';
                 this.loadFolderStructure();
                 this.promptList.innerHTML = '<div class="hezl-empty-state">请选择左侧分类查看词组</div>';
             } else {

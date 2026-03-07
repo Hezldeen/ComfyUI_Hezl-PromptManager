@@ -146,6 +146,22 @@ class CSVDataManager:
         except Exception as e:
             return {"success": False, "error": str(e)}
     
+    def delete_csv_file(self, csv_path):
+        try:
+            actual_path = os.path.join(self.csv_dir, csv_path)
+            
+            if not os.path.exists(actual_path):
+                return {"success": False, "error": "文件不存在"}
+            
+            if not os.path.isfile(actual_path):
+                return {"success": False, "error": "不是有效的CSV文件"}
+            
+            os.remove(actual_path)
+            
+            return {"success": True}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
     def rename_folder(self, folder_path, new_name):
         try:
             actual_path = os.path.join(self.csv_dir, folder_path)

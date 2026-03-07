@@ -92,3 +92,11 @@ async def create_csv_file(request):
         file_name=data.get("name", "")
     )
     return web.json_response(result)
+
+@routes.post("/hezl_prompt/delete_csv_file")
+async def delete_csv_file(request):
+    data = await request.json()
+    result = data_manager.delete_csv_file(
+        csv_path=data.get("path", "")
+    )
+    return web.json_response(result)
