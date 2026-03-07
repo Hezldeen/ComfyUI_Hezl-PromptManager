@@ -1,4 +1,4 @@
-# Comfyui_Hezl-PromptHezl  
+# Comfyui_Hezl-PromptManager 
 这是一个以文件夹层级分类,csv数据结构,来构筑的提示词插件  
   
 ## 更新  
