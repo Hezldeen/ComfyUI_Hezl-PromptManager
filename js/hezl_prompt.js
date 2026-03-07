@@ -792,7 +792,11 @@ class HezlPromptWidget {
                     e.stopPropagation();
                     this.clearFolderSelection(item.dataset.path);
                 } else {
-                    this.selectFolder(item.dataset.path, item.dataset.type);
+                    if (this.currentFolder === item.dataset.path) {
+                        this.deselectFolder();
+                    } else {
+                        this.selectFolder(item.dataset.path, item.dataset.type);
+                    }
                 }
             });
             
@@ -880,6 +884,18 @@ class HezlPromptWidget {
             console.error('Failed to load prompts:', error);
             this.promptList.innerHTML = '<div class="hezl-empty-state">加载失败</div>';
         }
+    }
+    
+    deselectFolder() {
+        this.currentFolder = '';
+        this.currentFolderType = '';
+        this.promptsData = [];
+        
+        this.folderTree.querySelectorAll('.hezl-folder-item').forEach(item => {
+            item.classList.remove('selected');
+        });
+        
+        this.promptList.innerHTML = '<div class="hezl-empty-state">请选择左侧分类查看词组</div>';
     }
     
     renderPromptList() {
