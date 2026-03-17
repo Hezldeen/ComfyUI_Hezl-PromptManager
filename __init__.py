@@ -100,3 +100,30 @@ async def delete_csv_file(request):
         csv_path=data.get("path", "")
     )
     return web.json_response(result)
+
+@routes.post("/hezl_prompt/rename_csv_file")
+async def rename_csv_file(request):
+    data = await request.json()
+    result = data_manager.rename_csv_file(
+        csv_path=data.get("path", ""),
+        new_name=data.get("new_name", "")
+    )
+    return web.json_response(result)
+
+@routes.post("/hezl_prompt/delete_prompt")
+async def delete_prompt(request):
+    data = await request.json()
+    result = data_manager.delete_prompt(
+        folder=data.get("folder", ""),
+        title=data.get("title", "")
+    )
+    return web.json_response(result)
+
+@routes.post("/hezl_prompt/reorder_prompts")
+async def reorder_prompts(request):
+    data = await request.json()
+    result = data_manager.reorder_prompts(
+        folder=data.get("folder", ""),
+        prompts=data.get("prompts", [])
+    )
+    return web.json_response(result)

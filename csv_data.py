@@ -161,6 +161,37 @@ class CSVDataManager:
             return {"success": True}
         except Exception as e:
             return {"success": False, "error": str(e)}
+
+    def rename_csv_file(self, csv_path, new_name):
+        try:
+            if not csv_path:
+                return {"success": False, "error": "CSV path is required"}
+            if not new_name:
+                return {"success": False, "error": "New name is required"}
+
+            if not new_name.endswith('.csv'):
+                new_name = new_name + '.csv'
+
+            actual_path = os.path.join(self.csv_dir, csv_path)
+
+            if not os.path.exists(actual_path):
+                return {"success": False, "error": "CSV file not found"}
+            if not os.path.isfile(actual_path):
+                return {"success": False, "error": "Invalid CSV file path"}
+
+            parent_path = os.path.dirname(actual_path)
+            new_path = os.path.join(parent_path, new_name)
+
+            if os.path.exists(new_path):
+                return {"success": False, "error": "A file with this name already exists"}
+
+            os.rename(actual_path, new_path)
+
+            rel_parent = os.path.dirname(csv_path)
+            new_rel_path = os.path.join(rel_parent, new_name) if rel_parent else new_name
+            return {"success": True, "path": new_rel_path}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
     
     def rename_folder(self, folder_path, new_name):
         try:
@@ -214,6 +245,50 @@ class CSVDataManager:
                 return {"success": True}
             else:
                 return {"success": False, "error": "Failed to write CSV file"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def delete_prompt(self, folder, title):
+        try:
+            actual_path = os.path.join(self.csv_dir, folder)
+
+            if not os.path.isfile(actual_path) or not actual_path.endswith('.csv'):
+                return {"success": False, "error": "Invalid CSV file path"}
+
+            prompts = self.read_csv_file(actual_path)
+            new_prompts = [p for p in prompts if p.get('title', '') != title]
+
+            if len(new_prompts) == len(prompts):
+                return {"success": False, "error": "Prompt not found"}
+
+            if self.write_csv_file(actual_path, new_prompts):
+                return {"success": True}
+            return {"success": False, "error": "Failed to write CSV file"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def reorder_prompts(self, folder, prompts):
+        try:
+            actual_path = os.path.join(self.csv_dir, folder)
+
+            if not os.path.isfile(actual_path) or not actual_path.endswith('.csv'):
+                return {"success": False, "error": "Invalid CSV file path"}
+
+            if not isinstance(prompts, list):
+                return {"success": False, "error": "Invalid prompts data"}
+
+            clean_prompts = []
+            for p in prompts:
+                if not isinstance(p, dict):
+                    continue
+                clean_prompts.append({
+                    "title": p.get("title", ""),
+                    "content": p.get("content", "")
+                })
+
+            if self.write_csv_file(actual_path, clean_prompts):
+                return {"success": True}
+            return {"success": False, "error": "Failed to write CSV file"}
         except Exception as e:
             return {"success": False, "error": str(e)}
     

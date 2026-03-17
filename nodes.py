@@ -7,10 +7,7 @@ class HezlPromptNode:
             "required": {
                 "selected_prompts": ("STRING", {"default": "{}", "multiline": True}),
             },
-            "optional": {
-                "prefix": ("STRING", {"default": ""}),
-                "suffix": ("STRING", {"default": ""}),
-            },
+            "optional": {},
             "hidden": {
                 "prompt_id": "UNIQUE_ID",
             },
@@ -22,7 +19,7 @@ class HezlPromptNode:
     CATEGORY = "Hezl-Node/Prompt"
     OUTPUT_NODE = True
 
-    def generate_prompt(self, selected_prompts, prefix="", suffix="", prompt_id=None):
+    def generate_prompt(self, selected_prompts, prompt_id=None):
         try:
             data = json.loads(selected_prompts)
             prompts = data.get("prompts", [])
@@ -46,12 +43,6 @@ class HezlPromptNode:
                 result_parts.append(formatted)
             
             result = ", ".join(result_parts)
-            
-            if prefix:
-                result = prefix + ", " + result
-            if suffix:
-                result = result + ", " + suffix
-                
             return (result,)
         except Exception as e:
             return (f"Error: {str(e)}",)

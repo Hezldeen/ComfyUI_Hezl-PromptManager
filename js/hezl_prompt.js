@@ -21,28 +21,86 @@ const HEZL_PROMPT_CSS = `
 }
 
 .hezl-prompt-bottom {
-    height: 200px;
+    flex: 0 0 200px;
+    min-height: 120px;
     padding: 8px;
     overflow-y: auto;
     background: #252525;
 }
 
 .hezl-prompt-sidebar {
+    flex: 0 0 auto;
     width: 200px;
+    min-width: 140px;
     border-right: 1px solid #444;
     overflow-y: auto;
     background: #1a1a1a;
+    display: flex;
+    flex-direction: column;
 }
 
 .hezl-prompt-list {
-    flex: 1;
+    flex: 1 1 auto;
+    min-width: 200px;
     overflow-y: auto;
     padding: 6px;
     background: #222;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 6px;
+}
+
+.hezl-splitter-vertical {
+    width: 4px;
+    cursor: col-resize;
+    background: #333;
+    flex: 0 0 4px;
+    display: flex;
+    align-items: center;
+}
+
+.hezl-splitter-vertical:hover {
+    background: #3d3d3d;
+}
+
+.hezl-splitter-vertical::after {
+    content: "";
+    display: block;
+    width: 2px;
+    height: 24px;
+    background-image: radial-gradient(#777 1px, transparent 1px);
+    background-size: 2px 4px;
+    background-position: center;
+}
+
+.hezl-splitter-horizontal {
+    height: 4px;
+    cursor: row-resize;
+    background: #333;
+    flex: 0 0 4px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.hezl-splitter-horizontal:hover {
+    background: #3d3d3d;
+}
+
+.hezl-splitter-horizontal::after {
+    content: "";
+    display: block;
+    width: 24px;
+    height: 2px;
+    background-image: radial-gradient(#777 1px, transparent 1px);
+    background-size: 4px 2px;
+    background-position: center;
 }
 
 .hezl-folder-tree {
     padding: 4px;
+    flex: 1 1 auto;
 }
 
 .hezl-folder-item {
@@ -119,14 +177,54 @@ const HEZL_PROMPT_CSS = `
 }
 
 .hezl-prompt-title {
-    font-weight: bold;
-    margin-bottom: 2px;
+    font-weight: normal;
+    font-size: 11px;
+    background: #666666;
+    color: #e6ffe6;
+    padding: 4px 10px;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.hezl-prompt-capsule {
+    display: flex;
+    align-items: stretch;
+    border-radius: 12px;
+    overflow: hidden;
+    margin: 4px 0;
+    border: 1px solid #333;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, transform 0.15s;
     font-size: 11px;
 }
 
-.hezl-prompt-content {
-    font-size: 10px;
-    color: #aaa;
+.hezl-prompt-capsule:hover {
+    border-color: #3d3d3d;
+    background: #262626;
+}
+
+.hezl-prompt-capsule.selected {
+    border-color: #27ae60;
+    box-shadow: inset 0 0 0 1px rgba(39, 174, 96, 0.3);
+}
+
+.hezl-capsule-title {
+    background: #3a3a3a;
+    color: #ddd;
+    padding: 4px 8px;
+    min-width: 60px;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: bold;
+}
+
+.hezl-capsule-content {
+    flex: 1;
+    background: #1f6f3d;
+    color: #e6ffe6;
+    padding: 4px 8px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -143,21 +241,24 @@ const HEZL_PROMPT_CSS = `
 }
 
 .hezl-preview-item {
-    background: #2a5298;
-    border-radius: 3px;
-    padding: 4px 8px;
+    background: #4a4a4a;
+    border-radius: 12px;
+    border: 1px solid #555;
     cursor: grab;
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 0;
+    overflow: hidden;
     transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.2s;
     font-size: 11px;
     user-select: none;
     position: relative;
+    height: 24px;
 }
 
 .hezl-preview-item:hover {
-    background: #2e6da4;
+    border-color: #666;
+    background: #5a5a5a;
 }
 
 .hezl-preview-item.dragging {
@@ -166,6 +267,7 @@ const HEZL_PROMPT_CSS = `
     transform: scale(1.02);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
     z-index: 100;
+    background: #4a4a4a;
 }
 
 .hezl-preview-item.drag-over {
@@ -184,26 +286,64 @@ const HEZL_PROMPT_CSS = `
 }
 
 .hezl-preview-item.disabled {
-    background: #555;
-    color: #888;
     opacity: 0.6;
 }
 
 .hezl-preview-item.disabled:hover {
-    background: #666;
+    border-color: #555;
+}
+
+.hezl-preview-title {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: #3a3a3a;
+    color: #ddd;
+    padding: 4px 6px;
+    min-width: 60px;
+    max-width: 140px;
+}
+
+.hezl-preview-weight {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    background: #2a5298;
+    color: #fff;
+    padding: 4px 6px;
+}
+
+.hezl-preview-item.disabled .hezl-preview-weight {
+    background: #555;
+    color: #bbb;
 }
 
 .hezl-preview-text {
-    max-width: 120px;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    order: 1;
+    padding: 0 6px;
+    color: #ddd;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
     white-space: nowrap;
 }
 
 .hezl-weight-control {
     display: flex;
     align-items: center;
-    gap: 1px;
+    gap: 3px;
+    background: #2a5298;
+    color: #fff;
+    padding: 0 6px;
+    order: 2;
+    height: 100%;
+}
+
+.hezl-preview-item.disabled .hezl-weight-control {
+    background: #555;
+    color: #bbb;
 }
 
 .hezl-weight-btn {
@@ -211,8 +351,8 @@ const HEZL_PROMPT_CSS = `
     height: 14px;
     border: none;
     border-radius: 2px;
-    background: #3a3a3a;
-    color: #ccc;
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
     cursor: pointer;
     font-size: 10px;
     font-weight: bold;
@@ -224,8 +364,7 @@ const HEZL_PROMPT_CSS = `
 }
 
 .hezl-weight-btn:hover {
-    background: #555;
-    color: #fff;
+    background: rgba(255, 255, 255, 0.3);
 }
 
 .hezl-weight-btn:active {
@@ -236,7 +375,7 @@ const HEZL_PROMPT_CSS = `
     font-size: 9px;
     min-width: 24px;
     text-align: center;
-    color: #ccc;
+    color: #fff;
 }
 
 .hezl-remove-btn {
@@ -248,7 +387,8 @@ const HEZL_PROMPT_CSS = `
     color: #fff;
     cursor: pointer;
     font-size: 8px;
-    margin-left: 2px;
+    margin: 0 4px 0 6px;
+    order: 0;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -423,16 +563,33 @@ const HEZL_PROMPT_CSS = `
     display: flex;
     justify-content: space-between;
     align-items: center;
+    position: sticky;
+    top: 0;
+    background: #1a1a1a;
+    z-index: 2;
 }
 
 .hezl-sidebar-actions {
     display: flex;
     gap: 2px;
+    margin-left: auto;
 }
 
 .hezl-sidebar-actions .hezl-btn {
     padding: 2px 5px;
     font-size: 10px;
+}
+
+.hezl-sidebar-actions {
+    display: flex;
+}
+
+#hezl-add-prompt,
+#hezl-add-csv,
+#hezl-add-folder,
+#hezl-delete-folder,
+#hezl-rename-folder {
+    display: none;
 }
 
 .hezl-tree-toggle {
@@ -504,41 +661,57 @@ const HEZL_PROMPT_CSS = `
 }
 
 .hezl-prompt-item-wrapper {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    background: #2a2a2a;
-    border-radius: 4px;
-    margin: 3px 0;
-    border-left: 2px solid #3498db;
+    background: #222;
+    border-radius: 12px;
+    margin: 0;
+    border: 1px solid #333;
+    overflow: hidden;
     transition: all 0.2s;
+    cursor: grab;
 }
 
 .hezl-prompt-item-wrapper:hover {
-    background: #333;
+    border-color: #3d3d3d;
 }
 
 .hezl-prompt-item-wrapper.selected {
-    border-left-color: #27ae60;
-    background: #2d3748;
+    border-color: #555;
+    box-shadow: none;
+    background: #4a4a4a;
+}
+
+.hezl-prompt-item-wrapper.selected .hezl-prompt-title {
+    background: #27ae60;
+    color: #ffffffff;
+}
+
+.hezl-prompt-item-wrapper.dragging {
+    opacity: 0.5;
+    transform: scale(0.98);
+}
+
+.hezl-prompt-item-wrapper.drag-over {
+    border-color: #27ae60;
+}
+
+.hezl-prompt-item-wrapper.insert-before {
+    box-shadow: inset 2px 0 0 #27ae60;
+}
+
+.hezl-prompt-item-wrapper.insert-after {
+    box-shadow: inset -2px 0 0 #27ae60;
 }
 
 .hezl-prompt-item-content {
-    flex: 1;
-    padding: 5px 8px;
+    display: inline-flex;
+    align-items: center;
     cursor: pointer;
-    min-width: 0;
 }
 
 .hezl-prompt-edit-btn {
-    padding: 3px 8px;
-    border: none;
-    border-radius: 3px;
-    background: #3498db;
-    color: #fff;
-    cursor: pointer;
-    font-size: 10px;
-    margin-right: 6px;
-    flex-shrink: 0;
+    display: none;
 }
 
 .hezl-prompt-edit-btn:hover {
@@ -580,26 +753,24 @@ class HezlPromptWidget {
         this.container.className = 'hezl-prompt-container';
         
         this.container.innerHTML = `
-            <div class="hezl-prompt-top">
-                <div class="hezl-prompt-sidebar">
+            <div class="hezl-prompt-top" id="hezl-prompt-top">
+                <div class="hezl-prompt-sidebar" id="hezl-prompt-sidebar">
                     <div class="hezl-section-title">
                         <span>分类目录</span>
                         <div class="hezl-sidebar-actions">
-                            <button class="hezl-btn small success" id="hezl-add-prompt" title="添加提示词">+词</button>
-                            <button class="hezl-btn small" id="hezl-add-csv" title="新建CSV文件">+CSV</button>
+                            <button class="hezl-btn small" id="hezl-add-root-folder" title="在根目录csv文件夹下创建文件夹">+文件夹</button>
                             <button class="hezl-btn small" id="hezl-refresh" title="刷新">↻</button>
-                            <button class="hezl-btn small" id="hezl-add-folder" title="添加文件夹">+</button>
-                            <button class="hezl-btn small danger" id="hezl-delete-folder" title="删除">-</button>
-                            <button class="hezl-btn small warning" id="hezl-rename-folder" title="重命名">✎</button>
                         </div>
                     </div>
                     <div class="hezl-folder-tree" id="hezl-folder-tree"></div>
                 </div>
+                <div class="hezl-splitter-vertical" id="hezl-splitter-vertical"></div>
                 <div class="hezl-prompt-list" id="hezl-prompt-list">
                     <div class="hezl-empty-state">请选择左侧分类查看词组</div>
                 </div>
             </div>
-            <div class="hezl-prompt-bottom">
+            <div class="hezl-splitter-horizontal" id="hezl-splitter-horizontal"></div>
+            <div class="hezl-prompt-bottom" id="hezl-prompt-bottom">
                 <div class="hezl-section-title">
                     <span>已选词组预览 (可拖拽排序，点击调节权重，单击禁用/启用)</span>
                 </div>
@@ -617,34 +788,31 @@ class HezlPromptWidget {
         this.promptList = this.container.querySelector('#hezl-prompt-list');
         this.previewContainer = this.container.querySelector('#hezl-preview-container');
         this.outputText = this.container.querySelector('#hezl-output-text');
+        this.sidebar = this.container.querySelector('#hezl-prompt-sidebar');
+        this.topPanel = this.container.querySelector('#hezl-prompt-top');
+        this.bottomPanel = this.container.querySelector('#hezl-prompt-bottom');
+        this.verticalSplitter = this.container.querySelector('#hezl-splitter-vertical');
+        this.horizontalSplitter = this.container.querySelector('#hezl-splitter-horizontal');
         
         this.setupEventListeners();
     }
     
     setupEventListeners() {
-        this.container.querySelector('#hezl-refresh').addEventListener('click', () => {
-            this.loadFolderStructure();
-        });
+        this.setupSplitters();
         
-        this.container.querySelector('#hezl-add-prompt').addEventListener('click', () => {
-            this.showAddPromptModal();
-        });
+        const refreshBtn = this.container.querySelector('#hezl-refresh');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => {
+                this.loadFolderStructure();
+            });
+        }
         
-        this.container.querySelector('#hezl-add-csv').addEventListener('click', () => {
-            this.showCreateCsvModal();
-        });
-        
-        this.container.querySelector('#hezl-add-folder').addEventListener('click', () => {
-            this.showAddFolderModal();
-        });
-        
-        this.container.querySelector('#hezl-delete-folder').addEventListener('click', () => {
-            this.deleteCurrentFolder();
-        });
-        
-        this.container.querySelector('#hezl-rename-folder').addEventListener('click', () => {
-            this.showRenameFolderModal();
-        });
+        const addRootBtn = this.container.querySelector('#hezl-add-root-folder');
+        if (addRootBtn) {
+            addRootBtn.addEventListener('click', () => {
+                this.showAddFolderModal('');
+            });
+        }
         
         this.container.querySelector('#hezl-remove-all').addEventListener('click', () => {
             this.removeAllPrompts();
@@ -683,6 +851,76 @@ class HezlPromptWidget {
                 this.hideContextMenu();
             }
         });
+        
+        this.folderTree.addEventListener('contextmenu', (e) => {
+            if (e.target.closest('.hezl-folder-item')) return;
+            e.preventDefault();
+            this.showContextMenu(e, '', 'blank');
+        });
+    }
+
+    setupSplitters() {
+        if (this.verticalSplitter && this.sidebar) {
+            const minSidebar = 140;
+            const minList = 200;
+            this.verticalSplitter.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                const startX = e.clientX;
+                const startWidth = this.sidebar.getBoundingClientRect().width;
+            const onMove = (moveEvent) => {
+                const containerRect = this.container.getBoundingClientRect();
+                const splitterWidth = this.verticalSplitter.getBoundingClientRect().width;
+                const maxWidth = containerRect.width - minList - splitterWidth;
+                let newWidth = startWidth + (moveEvent.clientX - startX);
+                newWidth = Math.max(minSidebar, Math.min(maxWidth, newWidth));
+                if (this._splitterRaf) cancelAnimationFrame(this._splitterRaf);
+                this._splitterRaf = requestAnimationFrame(() => {
+                    this.sidebar.style.width = `${newWidth}px`;
+                });
+            };
+            const onUp = () => {
+                if (this._splitterRaf) {
+                    cancelAnimationFrame(this._splitterRaf);
+                    this._splitterRaf = null;
+                }
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+            };
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+            });
+        }
+
+        if (this.horizontalSplitter && this.bottomPanel) {
+            const minBottom = 120;
+            const minTop = 120;
+            this.horizontalSplitter.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                const startY = e.clientY;
+                const startBottom = this.bottomPanel.getBoundingClientRect().height;
+            const onMove = (moveEvent) => {
+                const containerRect = this.container.getBoundingClientRect();
+                const splitterHeight = this.horizontalSplitter.getBoundingClientRect().height;
+                const maxBottom = containerRect.height - minTop - splitterHeight;
+                let newBottom = startBottom - (moveEvent.clientY - startY);
+                newBottom = Math.max(minBottom, Math.min(maxBottom, newBottom));
+                if (this._splitterRaf) cancelAnimationFrame(this._splitterRaf);
+                this._splitterRaf = requestAnimationFrame(() => {
+                    this.bottomPanel.style.flexBasis = `${newBottom}px`;
+                });
+            };
+            const onUp = () => {
+                if (this._splitterRaf) {
+                    cancelAnimationFrame(this._splitterRaf);
+                    this._splitterRaf = null;
+                }
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+            };
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+            });
+        }
     }
     
     async loadFolderStructure() {
@@ -807,7 +1045,7 @@ class HezlPromptWidget {
         });
     }
     
-    showContextMenu(e, path, type) {
+    showContextMenu(e, path, type, extra = {}) {
         this.hideContextMenu();
         
         this.contextMenu = document.createElement('div');
@@ -826,6 +1064,30 @@ class HezlPromptWidget {
             `;
         }
         
+        if (type === 'folder') {
+            menuHtml = `
+                <div class="hezl-context-menu-item" data-action="add-folder">\u6dfb\u52a0\u5b50\u6587\u4ef6\u5939</div>
+                <div class="hezl-context-menu-item" data-action="add-csv">\u65b0\u5efaCSV\u6587\u4ef6</div>
+                <div class="hezl-context-menu-item" data-action="rename-folder">\u91cd\u547d\u540d</div>
+                <div class="hezl-context-menu-item" data-action="delete-folder">\u5220\u9664</div>
+            `;
+        } else if (type === 'csv') {
+            menuHtml = `
+                <div class="hezl-context-menu-item" data-action="add-prompt">\u6dfb\u52a0\u8bcd\u7ec4</div>
+                <div class="hezl-context-menu-item" data-action="rename-csv">\u91cd\u547d\u540d</div>
+                <div class="hezl-context-menu-item" data-action="delete-csv">\u5220\u9664</div>
+            `;
+        } else if (type === 'prompt') {
+            menuHtml = `
+                <div class="hezl-context-menu-item" data-action="edit-prompt">\u7f16\u8f91</div>
+                <div class="hezl-context-menu-item" data-action="delete-prompt">\u5220\u9664</div>
+            `;
+        } else if (type === 'blank') {
+            menuHtml = `
+                <div class="hezl-context-menu-item" data-action="refresh">\u5237\u65b0</div>
+            `;
+        }
+
         this.contextMenu.innerHTML = menuHtml;
         document.body.appendChild(this.contextMenu);
         
@@ -835,7 +1097,31 @@ class HezlPromptWidget {
         this.contextMenu.querySelectorAll('.hezl-context-menu-item').forEach(item => {
             item.addEventListener('click', () => {
                 const action = item.dataset.action;
-                if (action === 'add') {
+                if (action === 'add-folder') {
+                    this.showAddFolderModal(path);
+                } else if (action === 'add-csv') {
+                    this.showCreateCsvModal(path);
+                } else if (action === 'rename-folder') {
+                    this.showRenameFolderModal(path);
+                } else if (action === 'delete-folder') {
+                    if (confirm('\u786e\u5b9a\u5220\u9664\u6b64\u6587\u4ef6\u5939\u5417\uff1f')) {
+                        this.deleteFolder(path);
+                    }
+                } else if (action === 'add-prompt') {
+                    this.showAddPromptModal(path);
+                } else if (action === 'rename-csv') {
+                    this.showRenameCsvModal(path);
+                } else if (action === 'delete-csv') {
+                    if (confirm('\u786e\u5b9a\u5220\u9664\u6b64CSV\u6587\u4ef6\u5417\uff1f')) {
+                        this.deleteCsvFile(path);
+                    }
+                } else if (action === 'edit-prompt') {
+                    this.showEditPromptModal(extra.title, extra.source || path);
+                } else if (action === 'delete-prompt') {
+                    this.deletePrompt(extra.title, extra.source || path);
+                } else if (action === 'refresh') {
+                    this.loadFolderStructure();
+                } else if (action === 'add') {
                     this.showAddFolderModal(path);
                 } else if (action === 'rename') {
                     this.showRenameFolderModal(path);
@@ -905,15 +1191,17 @@ class HezlPromptWidget {
         }
         
         let html = '';
-        for (const prompt of this.promptsData) {
+        for (let index = 0; index < this.promptsData.length; index++) {
+            const prompt = this.promptsData[index];
             const isSelected = this.selectedPrompts.some(p => p.title === prompt.title);
             html += `
                 <div class="hezl-prompt-item-wrapper ${isSelected ? 'selected' : ''}" 
                      data-title="${this.escapeHtml(prompt.title)}" 
-                     data-folder="${this.currentFolder}">
-                    <div class="hezl-prompt-item-content" draggable="true">
+                     data-folder="${this.currentFolder}"
+                     data-source="${this.escapeHtml(prompt.source || this.currentFolder)}"
+                     data-index="${index}">
+                    <div class="hezl-prompt-item-content">
                         <div class="hezl-prompt-title">${this.escapeHtml(prompt.title)}</div>
-                        <div class="hezl-prompt-content">${this.escapeHtml(prompt.content)}</div>
                     </div>
                     <button class="hezl-prompt-edit-btn" data-title="${this.escapeHtml(prompt.title)}">编辑</button>
                 </div>
@@ -922,47 +1210,131 @@ class HezlPromptWidget {
         
         this.promptList.innerHTML = html;
         
-        this.promptList.querySelectorAll('.hezl-prompt-item-content').forEach(item => {
-            const wrapper = item.closest('.hezl-prompt-item-wrapper');
-            item.addEventListener('click', () => {
+        const canReorder = this.currentFolderType === 'csv';
+        this.promptList.querySelectorAll('.hezl-prompt-item-wrapper').forEach(wrapper => {
+            const content = wrapper.querySelector('.hezl-prompt-item-content');
+            if (!content) return;
+            
+            content.addEventListener('click', () => {
                 this.togglePromptSelection(wrapper.dataset.title);
             });
             
-            item.addEventListener('mouseenter', (e) => {
+            wrapper.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                this.showContextMenu(e, wrapper.dataset.source, 'prompt', {
+                    title: wrapper.dataset.title,
+                    source: wrapper.dataset.source
+                });
+            });
+            
+            content.addEventListener('mouseenter', (e) => {
                 const promptTitle = wrapper.dataset.title;
-                const prompt = this.promptsData.find(p => p.title === promptTitle);
+                const promptSource = wrapper.dataset.source;
+                const prompt = this.promptsData.find(p => {
+                    const source = p.source || this.currentFolder;
+                    return p.title === promptTitle && source === promptSource;
+                });
                 if (prompt) {
                     this.showHoverPreview(e, prompt);
                 }
             });
             
-            item.addEventListener('mouseleave', () => {
+            content.addEventListener('mouseleave', () => {
                 this.hideHoverPreview();
             });
+
+            wrapper.draggable = canReorder;
             
-            item.addEventListener('dragstart', (e) => {
+            wrapper.addEventListener('dragstart', (e) => {
+                if (!canReorder) {
+                    e.preventDefault();
+                    return;
+                }
                 wrapper.classList.add('dragging');
-                e.dataTransfer.effectAllowed = 'copy';
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', wrapper.dataset.index);
             });
             
-            item.addEventListener('dragend', () => {
+            wrapper.addEventListener('dragend', () => {
                 wrapper.classList.remove('dragging');
+                this.promptList.querySelectorAll('.hezl-prompt-item-wrapper').forEach(i => {
+                    i.classList.remove('drag-over', 'insert-before', 'insert-after');
+                });
+            });
+            
+            wrapper.addEventListener('dragover', (e) => {
+                if (!canReorder) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                
+                if (wrapper.classList.contains('dragging')) return;
+                
+                this.promptList.querySelectorAll('.hezl-prompt-item-wrapper').forEach(i => {
+                    if (i !== wrapper) {
+                        i.classList.remove('insert-before', 'insert-after');
+                    }
+                });
+                
+                const rect = wrapper.getBoundingClientRect();
+                const midX = rect.left + rect.width / 2;
+                
+                if (e.clientX < midX) {
+                    wrapper.classList.remove('insert-after');
+                    wrapper.classList.add('insert-before');
+                } else {
+                    wrapper.classList.remove('insert-before');
+                    wrapper.classList.add('insert-after');
+                }
+            });
+            
+            wrapper.addEventListener('dragenter', (e) => {
+                if (!canReorder) return;
+                e.preventDefault();
+                if (!wrapper.classList.contains('dragging')) {
+                    wrapper.classList.add('drag-over');
+                }
+            });
+            
+            wrapper.addEventListener('dragleave', (e) => {
+                if (!canReorder) return;
+                const rect = wrapper.getBoundingClientRect();
+                if (e.clientX < rect.left || e.clientX > rect.right ||
+                    e.clientY < rect.top || e.clientY > rect.bottom) {
+                    wrapper.classList.remove('drag-over', 'insert-before', 'insert-after');
+                }
+            });
+            
+            wrapper.addEventListener('drop', (e) => {
+                if (!canReorder) return;
+                e.preventDefault();
+                wrapper.classList.remove('drag-over', 'insert-before', 'insert-after');
+                const dragIndex = parseInt(e.dataTransfer.getData('text/plain'));
+                let dropIndex = parseInt(wrapper.dataset.index);
+                
+                const rect = wrapper.getBoundingClientRect();
+                const midX = rect.left + rect.width / 2;
+                
+                if (e.clientX >= midX && dragIndex < dropIndex) {
+                    dropIndex = dropIndex + 1;
+                }
+                
+                if (!isNaN(dragIndex) && !isNaN(dropIndex) && dragIndex !== dropIndex) {
+                    this.reorderPromptList(dragIndex, dropIndex);
+                }
             });
         });
         
-        this.promptList.querySelectorAll('.hezl-prompt-edit-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.showEditPromptModal(btn.dataset.title);
-            });
-        });
     }
     
-    async showEditPromptModal(promptTitle) {
-        const prompt = this.promptsData.find(p => p.title === promptTitle);
+    async showEditPromptModal(promptTitle, promptSource = null) {
+        const prompt = this.promptsData.find(p => {
+            const source = p.source || this.currentFolder;
+            const targetSource = promptSource || this.currentFolder;
+            return p.title === promptTitle && source === targetSource;
+        });
         if (!prompt) return;
         
-        const folder = this.currentFolder;
+        const folder = promptSource || this.currentFolder;
         
         const modal = document.createElement('div');
         modal.className = 'hezl-modal';
@@ -1037,7 +1409,8 @@ class HezlPromptWidget {
                     }
                     
                     modal.remove();
-                    await this.selectFolder(folder, this.currentFolderType);
+                    const nextType = folder && folder.toLowerCase().endsWith('.csv') ? 'csv' : this.currentFolderType;
+                    await this.selectFolder(folder, nextType);
                 } else {
                     alert('保存失败: ' + result.error);
                 }
@@ -1053,7 +1426,11 @@ class HezlPromptWidget {
         });
     }
     
-    async showAddPromptModal() {
+    async showAddPromptModal(csvPath = null) {
+        if (csvPath) {
+            this.currentFolder = csvPath;
+            this.currentFolderType = 'csv';
+        }
         if (!this.currentFolder || this.currentFolderType !== 'csv') {
             alert('请选中csv文件');
             return;
@@ -1392,6 +1769,49 @@ class HezlPromptWidget {
         }
     }
     
+    async deletePrompt(promptTitle, promptSource) {
+        if (!promptTitle || !promptSource) return;
+        if (!confirm('\u786e\u5b9a\u5220\u9664\u8be5\u8bcd\u7ec4\u5417?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch('/hezl_prompt/delete_prompt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    folder: promptSource,
+                    title: promptTitle
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.promptsData = this.promptsData.filter(p => {
+                    const source = p.source || this.currentFolder;
+                    return !(p.title === promptTitle && source === promptSource);
+                });
+
+                const selectedIndex = this.selectedPrompts.findIndex(p => p.title === promptTitle && p.folder === promptSource);
+                if (selectedIndex !== -1) {
+                    this.selectedPrompts.splice(selectedIndex, 1);
+                    delete this.promptWeights[promptTitle];
+                    delete this.promptDisabled[promptTitle];
+                }
+
+                this.updateFolderCounts();
+                this.renderPromptList();
+                this.renderPreview();
+                this.updateOutput();
+            } else {
+                alert('\u5220\u9664\u5931\u8d25: ' + result.error);
+            }
+        } catch (error) {
+            alert('\u5220\u9664\u5931\u8d25: ' + error.message);
+        }
+    }
+
     removeAllPrompts() {
         if (this.selectedPrompts.length === 0) return;
         if (confirm('确定要移除所有已选词组吗？')) {
@@ -1427,6 +1847,47 @@ class HezlPromptWidget {
         
         this.renderPreview();
         this.updateOutput();
+    }
+
+    async reorderPromptList(fromIndex, toIndex) {
+        if (this.currentFolderType !== 'csv') return;
+        if (fromIndex === toIndex) return;
+        
+        const item = this.promptsData.splice(fromIndex, 1)[0];
+        
+        if (fromIndex < toIndex) {
+            toIndex--;
+        }
+        
+        this.promptsData.splice(toIndex, 0, item);
+        
+        await this.persistPromptOrder();
+        this.renderPromptList();
+    }
+
+    async persistPromptOrder() {
+        if (this.currentFolderType !== 'csv') return;
+        
+        try {
+            const response = await fetch('/hezl_prompt/reorder_prompts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    folder: this.currentFolder,
+                    prompts: this.promptsData.map(p => ({
+                        title: p.title,
+                        content: p.content
+                    }))
+                })
+            });
+            
+            const result = await response.json();
+            if (!result.success) {
+                alert('æŽ’åºä¿å­˜å¤±è´¥: ' + result.error);
+            }
+        } catch (error) {
+            alert('æŽ’åºä¿å­˜å¤±è´¥: ' + error.message);
+        }
     }
     
     updateOutput() {
@@ -1505,7 +1966,7 @@ class HezlPromptWidget {
     }
     
     showAddFolderModal(parentPath = null) {
-        const parent = parentPath || this.currentFolder || '';
+        const parent = ''; // 强制在根目录下创建
         
         const modal = document.createElement('div');
         modal.className = 'hezl-modal';
@@ -1567,7 +2028,11 @@ class HezlPromptWidget {
         });
     }
     
-    showCreateCsvModal() {
+    showCreateCsvModal(folderPath = null) {
+        if (folderPath) {
+            this.currentFolder = folderPath;
+            this.currentFolderType = 'folder';
+        }
         if (!this.currentFolder || this.currentFolderType !== 'folder') {
             alert('请选择文件夹');
             return;
@@ -1702,6 +2167,94 @@ class HezlPromptWidget {
         });
     }
     
+    showRenameCsvModal(csvPath = null) {
+        const path = csvPath || this.currentFolder;
+        if (!path) {
+            alert('\u8bf7\u5148\u9009\u62e9CSV\u6587\u4ef6');
+            return;
+        }
+
+        const fileName = path.split(/[/\\]/).pop();
+        const baseName = fileName.replace(/\.csv$/i, '');
+
+        const modal = document.createElement('div');
+        modal.className = 'hezl-modal';
+        modal.innerHTML = `
+            <div class="hezl-modal-content">
+                <div class="hezl-modal-header">\u91cd\u547d\u540dCSV\u6587\u4ef6</div>
+                <div class="hezl-form-group">
+                    <label class="hezl-form-label">\u65b0\u540d\u79f0</label>
+                    <input type="text" class="hezl-form-input" id="hezl-new-csv-name" value="${this.escapeHtml(baseName)}" placeholder="\u8f93\u5165\u65b0\u540d\u79f0">
+                </div>
+                <div class="hezl-modal-actions">
+                    <button class="hezl-btn" id="hezl-modal-cancel">\u53d6\u6d88</button>
+                    <button class="hezl-btn success" id="hezl-modal-save">\u4fdd\u5b58</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        modal.querySelector('#hezl-modal-cancel').addEventListener('click', () => {
+            modal.remove();
+        });
+
+        modal.querySelector('#hezl-modal-save').addEventListener('click', async () => {
+            const newName = modal.querySelector('#hezl-new-csv-name').value.trim();
+            if (!newName) {
+                alert('\u8bf7\u8f93\u5165\u65b0\u540d\u79f0');
+                return;
+            }
+
+            try {
+                const response = await fetch('/hezl_prompt/rename_csv_file', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        path: path,
+                        new_name: newName
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    const newPath = result.path || path;
+                    this.selectedPrompts.forEach(p => {
+                        if (p.folder === path) {
+                            p.folder = newPath;
+                        }
+                    });
+                    this.promptsData.forEach(p => {
+                        const source = p.source || this.currentFolder;
+                        if (source === path) {
+                            p.source = newPath;
+                        }
+                    });
+                    if (this.currentFolder === path) {
+                        this.currentFolder = newPath;
+                        this.currentFolderType = 'csv';
+                    }
+                    modal.remove();
+                    this.loadFolderStructure();
+                    if (this.currentFolder === newPath) {
+                        await this.selectFolder(newPath, 'csv');
+                    }
+                } else {
+                    alert('\u91cd\u547d\u540d\u5931\u8d25: ' + result.error);
+                }
+            } catch (error) {
+                alert('\u91cd\u547d\u540d\u5931\u8d25: ' + error.message);
+            }
+        });
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        });
+    }
+
     deleteCurrentFolder() {
         if (!this.currentFolder) {
             alert('请先选择要删除的项目');
