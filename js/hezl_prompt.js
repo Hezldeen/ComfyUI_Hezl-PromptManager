@@ -5,7 +5,8 @@ const HEZL_PROMPT_CSS = `
 .hezl-prompt-container {
     display: flex;
     flex-direction: column;
-    height: 600px;
+    width: 100%;
+    height: 100%;
     background: #1e1e1e;
     border-radius: 8px;
     overflow: hidden;
@@ -21,11 +22,14 @@ const HEZL_PROMPT_CSS = `
 }
 
 .hezl-prompt-bottom {
-    flex: 0 0 200px;
-    min-height: 120px;
+    flex: 0 0 auto;
+    min-height: 80px;
+    max-height: 50%;
     padding: 8px;
     overflow-y: auto;
     background: #252525;
+    display: flex;
+    flex-direction: column;
 }
 
 .hezl-prompt-sidebar {
@@ -41,7 +45,7 @@ const HEZL_PROMPT_CSS = `
 
 .hezl-prompt-list {
     flex: 1 1 auto;
-    min-width: 200px;
+    min-width: 150px;
     overflow-y: auto;
     padding: 6px;
     background: #222;
@@ -543,17 +547,6 @@ const HEZL_PROMPT_CSS = `
     font-size: 11px;
 }
 
-.hezl-output-text {
-    background: #1a1a1a;
-    border-radius: 4px;
-    padding: 8px;
-    margin-top: 8px;
-    font-family: monospace;
-    font-size: 11px;
-    word-break: break-all;
-    color: #27ae60;
-}
-
 .hezl-section-title {
     font-size: 11px;
     font-weight: bold;
@@ -771,23 +764,18 @@ class HezlPromptWidget {
             </div>
             <div class="hezl-splitter-horizontal" id="hezl-splitter-horizontal"></div>
             <div class="hezl-prompt-bottom" id="hezl-prompt-bottom">
-                <div class="hezl-section-title">
-                    <span>已选词组预览 (可拖拽排序，点击调节权重，单击禁用/启用)</span>
-                </div>
                 <div class="hezl-preview-actions">
                     <button class="hezl-btn small danger" id="hezl-remove-all">移除全部</button>
                     <button class="hezl-btn small warning" id="hezl-disable-all">禁用全部</button>
                     <button class="hezl-btn small success" id="hezl-enable-all">启用全部</button>
                 </div>
                 <div class="hezl-preview-container" id="hezl-preview-container"></div>
-                <div class="hezl-output-text" id="hezl-output-text"></div>
             </div>
         `;
         
         this.folderTree = this.container.querySelector('#hezl-folder-tree');
         this.promptList = this.container.querySelector('#hezl-prompt-list');
         this.previewContainer = this.container.querySelector('#hezl-preview-container');
-        this.outputText = this.container.querySelector('#hezl-output-text');
         this.sidebar = this.container.querySelector('#hezl-prompt-sidebar');
         this.topPanel = this.container.querySelector('#hezl-prompt-top');
         this.bottomPanel = this.container.querySelector('#hezl-prompt-bottom');
@@ -838,10 +826,20 @@ class HezlPromptWidget {
                 const dropTarget = e.target.closest('.hezl-preview-item');
                 if (dropTarget) {
                     const dropIndex = parseInt(dropTarget.dataset.index);
-                    this.reorderPrompts(dragIndex, dropIndex);
+                    const rect = dropTarget.getBoundingClientRect();
+                    const midX = rect.left + rect.width / 2;
+                    let targetIndex = dropIndex;
+                    if (e.clientX >= midX) {
+                        targetIndex = dropIndex + 1;
+                    }
+                    if (dragIndex !== targetIndex) {
+                        this.reorderPrompts(dragIndex, targetIndex);
+                    }
                 } else {
                     const lastIndex = this.selectedPrompts.length - 1;
-                    this.reorderPrompts(dragIndex, lastIndex);
+                    if (dragIndex !== lastIndex) {
+                        this.reorderPrompts(dragIndex, lastIndex);
+                    }
                 }
             }
         });
@@ -862,7 +860,7 @@ class HezlPromptWidget {
     setupSplitters() {
         if (this.verticalSplitter && this.sidebar) {
             const minSidebar = 140;
-            const minList = 200;
+            const minRight = 150;
             this.verticalSplitter.addEventListener('mousedown', (e) => {
                 e.preventDefault();
                 const startX = e.clientX;
@@ -870,7 +868,7 @@ class HezlPromptWidget {
             const onMove = (moveEvent) => {
                 const containerRect = this.container.getBoundingClientRect();
                 const splitterWidth = this.verticalSplitter.getBoundingClientRect().width;
-                const maxWidth = containerRect.width - minList - splitterWidth;
+                const maxWidth = containerRect.width - minRight - splitterWidth;
                 let newWidth = startWidth + (moveEvent.clientX - startX);
                 newWidth = Math.max(minSidebar, Math.min(maxWidth, newWidth));
                 if (this._splitterRaf) cancelAnimationFrame(this._splitterRaf);
@@ -892,7 +890,7 @@ class HezlPromptWidget {
         }
 
         if (this.horizontalSplitter && this.bottomPanel) {
-            const minBottom = 120;
+            const minBottom = 60;
             const minTop = 120;
             this.horizontalSplitter.addEventListener('mousedown', (e) => {
                 e.preventDefault();
@@ -904,15 +902,15 @@ class HezlPromptWidget {
                 const maxBottom = containerRect.height - minTop - splitterHeight;
                 let newBottom = startBottom - (moveEvent.clientY - startY);
                 newBottom = Math.max(minBottom, Math.min(maxBottom, newBottom));
-                if (this._splitterRaf) cancelAnimationFrame(this._splitterRaf);
-                this._splitterRaf = requestAnimationFrame(() => {
+                if (this._splitterRaf2) cancelAnimationFrame(this._splitterRaf2);
+                this._splitterRaf2 = requestAnimationFrame(() => {
                     this.bottomPanel.style.flexBasis = `${newBottom}px`;
                 });
             };
             const onUp = () => {
-                if (this._splitterRaf) {
-                    cancelAnimationFrame(this._splitterRaf);
-                    this._splitterRaf = null;
+                if (this._splitterRaf2) {
+                    cancelAnimationFrame(this._splitterRaf2);
+                    this._splitterRaf2 = null;
                 }
                 document.removeEventListener('mousemove', onMove);
                 document.removeEventListener('mouseup', onUp);
@@ -923,10 +921,23 @@ class HezlPromptWidget {
         }
     }
     
+    async safeFetchJson(url, options = {}) {
+        const response = await fetch(url, options);
+        if (!response.ok) {
+            const text = await response.text();
+            throw new Error(`HTTP ${response.status}: ${text}`);
+        }
+        const text = await response.text();
+        try {
+            return JSON.parse(text);
+        } catch (e) {
+            throw new Error(`JSON parse error: ${e.message}. Response: ${text.substring(0, 200)}`);
+        }
+    }
+
     async loadFolderStructure() {
         try {
-            const response = await fetch('/hezl_prompt/get_structure');
-            this.folderStructure = await response.json();
+            this.folderStructure = await this.safeFetchJson('/hezl_prompt/get_structure');
             this.renderFolderTree();
             if (this.selectedPrompts.length > 0) {
                 this.updateFolderCounts();
@@ -1163,8 +1174,7 @@ class HezlPromptWidget {
         });
         
         try {
-            const response = await fetch(`/hezl_prompt/get_prompts?folder=${encodeURIComponent(path)}`);
-            this.promptsData = await response.json();
+            this.promptsData = await this.safeFetchJson(`/hezl_prompt/get_prompts?folder=${encodeURIComponent(path)}`);
             this.renderPromptList();
         } catch (error) {
             console.error('Failed to load prompts:', error);
@@ -1314,7 +1324,7 @@ class HezlPromptWidget {
                 const rect = wrapper.getBoundingClientRect();
                 const midX = rect.left + rect.width / 2;
                 
-                if (e.clientX >= midX && dragIndex < dropIndex) {
+                if (e.clientX >= midX) {
                     dropIndex = dropIndex + 1;
                 }
                 
@@ -1380,7 +1390,7 @@ class HezlPromptWidget {
             }
             
             try {
-                const response = await fetch('/hezl_prompt/update_prompt', {
+                const result = await this.safeFetchJson('/hezl_prompt/update_prompt', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1390,8 +1400,6 @@ class HezlPromptWidget {
                         new_content: newContent
                     })
                 });
-                
-                const result = await response.json();
                 
                 if (result.success) {
                     const selectedIndex = this.selectedPrompts.findIndex(p => p.title === promptTitle);
@@ -1419,8 +1427,8 @@ class HezlPromptWidget {
             }
         });
         
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
+        modal.addEventListener('mousedown', (e) => {
+            if (!e.target.closest('.hezl-modal-content')) {
                 modal.remove();
             }
         });
@@ -1480,7 +1488,7 @@ class HezlPromptWidget {
             }
             
             try {
-                const response = await fetch('/hezl_prompt/add_prompt', {
+                const result = await this.safeFetchJson('/hezl_prompt/add_prompt', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1489,8 +1497,6 @@ class HezlPromptWidget {
                         content: newContent
                     })
                 });
-                
-                const result = await response.json();
                 
                 if (result.success) {
                     modal.remove();
@@ -1503,8 +1509,8 @@ class HezlPromptWidget {
             }
         });
         
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
+        modal.addEventListener('mousedown', (e) => {
+            if (!e.target.closest('.hezl-modal-content')) {
                 modal.remove();
             }
         });
@@ -1704,7 +1710,7 @@ class HezlPromptWidget {
                 const rect = item.getBoundingClientRect();
                 const midX = rect.left + rect.width / 2;
                 
-                if (e.clientX >= midX && dragIndex < dropIndex) {
+                if (e.clientX >= midX) {
                     dropIndex = dropIndex + 1;
                 }
                 
@@ -1776,7 +1782,7 @@ class HezlPromptWidget {
         }
 
         try {
-            const response = await fetch('/hezl_prompt/delete_prompt', {
+            const result = await this.safeFetchJson('/hezl_prompt/delete_prompt', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1784,8 +1790,6 @@ class HezlPromptWidget {
                     title: promptTitle
                 })
             });
-
-            const result = await response.json();
 
             if (result.success) {
                 this.promptsData = this.promptsData.filter(p => {
@@ -1869,7 +1873,7 @@ class HezlPromptWidget {
         if (this.currentFolderType !== 'csv') return;
         
         try {
-            const response = await fetch('/hezl_prompt/reorder_prompts', {
+            const result = await this.safeFetchJson('/hezl_prompt/reorder_prompts', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1880,8 +1884,6 @@ class HezlPromptWidget {
                     }))
                 })
             });
-            
-            const result = await response.json();
             if (!result.success) {
                 alert('æŽ’åºä¿å­˜å¤±è´¥: ' + result.error);
             }
@@ -1891,21 +1893,6 @@ class HezlPromptWidget {
     }
     
     updateOutput() {
-        const parts = [];
-        for (const p of this.selectedPrompts) {
-            if (this.promptDisabled[p.title]) continue;
-            
-            const weight = this.promptWeights[p.title] || 1.0;
-            if (weight !== 1.0) {
-                parts.push(`(${p.content}:${weight.toFixed(2)})`);
-            } else {
-                parts.push(p.content);
-            }
-        }
-        
-        const output = parts.join(', ');
-        this.outputText.textContent = output;
-        
         if (this.node && this.node.widgets) {
             const widget = this.node.widgets.find(w => w.name === 'selected_prompts');
             if (widget) {
@@ -1999,7 +1986,7 @@ class HezlPromptWidget {
             }
             
             try {
-                const response = await fetch('/hezl_prompt/add_folder', {
+                const result = await this.safeFetchJson('/hezl_prompt/add_folder', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -2007,8 +1994,6 @@ class HezlPromptWidget {
                         name: name
                     })
                 });
-                
-                const result = await response.json();
                 
                 if (result.success) {
                     modal.remove();
@@ -2021,8 +2006,8 @@ class HezlPromptWidget {
             }
         });
         
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
+        modal.addEventListener('mousedown', (e) => {
+            if (!e.target.closest('.hezl-modal-content')) {
                 modal.remove();
             }
         });
@@ -2069,7 +2054,7 @@ class HezlPromptWidget {
             }
             
             try {
-                const response = await fetch('/hezl_prompt/create_csv_file', {
+                const result = await this.safeFetchJson('/hezl_prompt/create_csv_file', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -2077,8 +2062,6 @@ class HezlPromptWidget {
                         name: name
                     })
                 });
-                
-                const result = await response.json();
                 
                 if (result.success) {
                     modal.remove();
@@ -2091,8 +2074,8 @@ class HezlPromptWidget {
             }
         });
         
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
+        modal.addEventListener('mousedown', (e) => {
+            if (!e.target.closest('.hezl-modal-content')) {
                 modal.remove();
             }
         });
@@ -2138,7 +2121,7 @@ class HezlPromptWidget {
             }
             
             try {
-                const response = await fetch('/hezl_prompt/rename_folder', {
+                const result = await this.safeFetchJson('/hezl_prompt/rename_folder', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -2146,8 +2129,6 @@ class HezlPromptWidget {
                         new_name: newName
                     })
                 });
-                
-                const result = await response.json();
                 
                 if (result.success) {
                     modal.remove();
@@ -2160,8 +2141,8 @@ class HezlPromptWidget {
             }
         });
         
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
+        modal.addEventListener('mousedown', (e) => {
+            if (!e.target.closest('.hezl-modal-content')) {
                 modal.remove();
             }
         });
@@ -2207,7 +2188,7 @@ class HezlPromptWidget {
             }
 
             try {
-                const response = await fetch('/hezl_prompt/rename_csv_file', {
+                const result = await this.safeFetchJson('/hezl_prompt/rename_csv_file', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -2215,8 +2196,6 @@ class HezlPromptWidget {
                         new_name: newName
                     })
                 });
-
-                const result = await response.json();
 
                 if (result.success) {
                     const newPath = result.path || path;
@@ -2248,8 +2227,8 @@ class HezlPromptWidget {
             }
         });
 
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
+        modal.addEventListener('mousedown', (e) => {
+            if (!e.target.closest('.hezl-modal-content')) {
                 modal.remove();
             }
         });
@@ -2281,15 +2260,13 @@ class HezlPromptWidget {
         }
         
         try {
-            const response = await fetch('/hezl_prompt/delete_csv_file', {
+            const result = await this.safeFetchJson('/hezl_prompt/delete_csv_file', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     path: csvPath
                 })
             });
-            
-            const result = await response.json();
             
             if (result.success) {
                 this.selectedPrompts = this.selectedPrompts.filter(p => p.folder !== csvPath);
@@ -2315,15 +2292,13 @@ class HezlPromptWidget {
         }
         
         try {
-            const response = await fetch('/hezl_prompt/delete_folder', {
+            const result = await this.safeFetchJson('/hezl_prompt/delete_folder', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     path: folderPath
                 })
             });
-            
-            const result = await response.json();
             
             if (result.success) {
                 this.selectedPrompts = this.selectedPrompts.filter(p => {
@@ -2362,6 +2337,8 @@ app.registerExtension({
             
             nodeType.prototype.onNodeCreated = function() {
                 const result = onNodeCreated?.apply(this, arguments);
+                
+                this.size = [800, 600];
                 
                 const widget = this.widgets?.find(w => w.name === 'selected_prompts');
                 if (widget) {
