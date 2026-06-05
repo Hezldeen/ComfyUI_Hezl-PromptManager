@@ -181,13 +181,15 @@ const HEZL_PROMPT_CSS = `
 }
 
 .hezl-prompt-title {
-    font-weight: normal;
+    font-weight: 500;
     font-size: 11px;
-    background: #666666;
-    color: #e6ffe6;
-    padding: 4px 10px;
+    background: #3d3d3d;
+    color: #e0e0e0;
+    padding: 3px 10px;
+    border-radius: 8px 0 0 8px;
     flex-shrink: 0;
     white-space: nowrap;
+    letter-spacing: 0.3px;
 }
 
 .hezl-prompt-capsule {
@@ -656,28 +658,31 @@ const HEZL_PROMPT_CSS = `
 .hezl-prompt-item-wrapper {
     display: inline-flex;
     align-items: center;
-    background: #222;
-    border-radius: 12px;
-    margin: 0;
-    border: 1px solid #333;
+    background: #2a2a2a;
+    border-radius: 10px;
+    margin: 1px;
+    border: 1px solid #3a3a3a;
     overflow: hidden;
-    transition: all 0.2s;
+    transition: all 0.15s ease;
     cursor: grab;
 }
 
 .hezl-prompt-item-wrapper:hover {
-    border-color: #3d3d3d;
+    border-color: #555;
+    background: #333;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
 }
 
 .hezl-prompt-item-wrapper.selected {
-    border-color: #555;
-    box-shadow: none;
-    background: #4a4a4a;
+    border-color: #27ae60;
+    background: #2d3a2d;
+    box-shadow: 0 0 0 1px rgba(39, 174, 96, 0.3);
 }
 
 .hezl-prompt-item-wrapper.selected .hezl-prompt-title {
     background: #27ae60;
-    color: #ffffffff;
+    color: #fff;
 }
 
 .hezl-prompt-item-wrapper.dragging {
@@ -700,6 +705,7 @@ const HEZL_PROMPT_CSS = `
 .hezl-prompt-item-content {
     display: inline-flex;
     align-items: center;
+    gap: 6px;
     cursor: pointer;
 }
 
@@ -710,15 +716,153 @@ const HEZL_PROMPT_CSS = `
 .hezl-prompt-edit-btn:hover {
     background: #2980b9;
 }
+
+/* Multi-bar styles */
+.hezl-bar-section {
+    margin-bottom: 8px;
+    border: 1px solid #333;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.hezl-bar-header {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background: #1a1a1a;
+    border-bottom: 1px solid #333;
+    font-size: 11px;
+}
+
+.hezl-bar-label {
+    font-weight: bold;
+    color: #ccc;
+    margin-right: 2px;
+    cursor: pointer;
+    padding: 1px 3px;
+    border-radius: 3px;
+    transition: background 0.15s;
+}
+
+.hezl-bar-label:hover {
+    background: #333;
+    color: #fff;
+}
+
+/* Bar rename button */
+.hezl-bar-rename-btn {
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    font-size: 11px;
+    padding: 1px 4px;
+    border-radius: 3px;
+    transition: all 0.15s;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.hezl-bar-rename-btn:hover {
+    color: #3498db;
+    background: rgba(52, 152, 219, 0.15);
+}
+
+.hezl-bar-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.hezl-bar-drop-zone {
+    min-height: 20px;
+    padding: 4px;
+    transition: background 0.2s;
+}
+
+.hezl-bar-drop-zone.drag-over-bar {
+    background: rgba(39, 174, 96, 0.15);
+    border: 1px dashed #27ae60;
+    border-radius: 4px;
+}
+
+.hezl-add-bar-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 8px;
+    border: 1px dashed #555;
+    border-radius: 6px;
+    background: transparent;
+    color: #888;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.2s;
+    margin-top: 4px;
+}
+
+.hezl-add-bar-btn:hover {
+    border-color: #3498db;
+    color: #3498db;
+    background: rgba(52, 152, 219, 0.1);
+}
+
+/* Bar header layout */
+.hezl-bar-actions-left {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+}
+
+.hezl-bar-actions-right {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Selected bar */
+.hezl-bar-section.selected-bar {
+    border: 2px solid #27ae60;
+}
+
+/* Prompt count badge (right side of phrase item — compact filled pill) */
+.hezl-prompt-count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 17px;
+    border-radius: 9px;
+    background: #c0392b;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 0 5px;
+    line-height: 1;
+    flex-shrink: 0;
+    margin-right: 2px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+    letter-spacing: 0.3px;
+}
 `;
 
 class HezlPromptWidget {
     constructor(node, inputName, inputData, app) {
         this.node = node;
         this.app = app;
-        this.selectedPrompts = [];
-        this.promptWeights = {};
-        this.promptDisabled = {};
+        // Multi-bar data structure: each bar has its own prompts, weights, disabled
+        this.bars = [
+            {
+                name: '',
+                prompts: [],
+                weights: {},
+                disabled: {}
+            }
+        ];
+        this.selectedBarIndex = 0;
+        this._nextPromptId = 1;
         this.folderStructure = null;
         this.currentFolder = "";
         this.promptsData = [];
@@ -751,6 +895,8 @@ class HezlPromptWidget {
                     <div class="hezl-section-title">
                         <span>分类目录</span>
                         <div class="hezl-sidebar-actions">
+                            <button class="hezl-btn small" id="hezl-expand-all" title="展开全部">展开</button>
+                            <button class="hezl-btn small" id="hezl-collapse-all" title="收起全部">收起</button>
                             <button class="hezl-btn small" id="hezl-add-root-folder" title="在根目录csv文件夹下创建文件夹">+文件夹</button>
                             <button class="hezl-btn small" id="hezl-refresh" title="刷新">↻</button>
                         </div>
@@ -764,18 +910,14 @@ class HezlPromptWidget {
             </div>
             <div class="hezl-splitter-horizontal" id="hezl-splitter-horizontal"></div>
             <div class="hezl-prompt-bottom" id="hezl-prompt-bottom">
-                <div class="hezl-preview-actions">
-                    <button class="hezl-btn small danger" id="hezl-remove-all">移除全部</button>
-                    <button class="hezl-btn small warning" id="hezl-disable-all">禁用全部</button>
-                    <button class="hezl-btn small success" id="hezl-enable-all">启用全部</button>
-                </div>
-                <div class="hezl-preview-container" id="hezl-preview-container"></div>
+                <div id="hezl-bars-container"></div>
+                <button class="hezl-add-bar-btn" id="hezl-add-bar" title="添加词组栏">+</button>
             </div>
         `;
         
         this.folderTree = this.container.querySelector('#hezl-folder-tree');
         this.promptList = this.container.querySelector('#hezl-prompt-list');
-        this.previewContainer = this.container.querySelector('#hezl-preview-container');
+        this.barsContainer = this.container.querySelector('#hezl-bars-container');
         this.sidebar = this.container.querySelector('#hezl-prompt-sidebar');
         this.topPanel = this.container.querySelector('#hezl-prompt-top');
         this.bottomPanel = this.container.querySelector('#hezl-prompt-bottom');
@@ -802,47 +944,28 @@ class HezlPromptWidget {
             });
         }
         
-        this.container.querySelector('#hezl-remove-all').addEventListener('click', () => {
-            this.removeAllPrompts();
-        });
-        
-        this.container.querySelector('#hezl-disable-all').addEventListener('click', () => {
-            this.toggleAllPromptsDisabled(true);
-        });
-        
-        this.container.querySelector('#hezl-enable-all').addEventListener('click', () => {
-            this.toggleAllPromptsDisabled(false);
-        });
-        
-        this.previewContainer.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-        });
-        
-        this.previewContainer.addEventListener('drop', (e) => {
-            e.preventDefault();
-            const dragIndex = parseInt(e.dataTransfer.getData('text/plain'));
-            if (!isNaN(dragIndex)) {
-                const dropTarget = e.target.closest('.hezl-preview-item');
-                if (dropTarget) {
-                    const dropIndex = parseInt(dropTarget.dataset.index);
-                    const rect = dropTarget.getBoundingClientRect();
-                    const midX = rect.left + rect.width / 2;
-                    let targetIndex = dropIndex;
-                    if (e.clientX >= midX) {
-                        targetIndex = dropIndex + 1;
-                    }
-                    if (dragIndex !== targetIndex) {
-                        this.reorderPrompts(dragIndex, targetIndex);
-                    }
-                } else {
-                    const lastIndex = this.selectedPrompts.length - 1;
-                    if (dragIndex !== lastIndex) {
-                        this.reorderPrompts(dragIndex, lastIndex);
-                    }
-                }
-            }
-        });
+        // Feature 2: Expand all / Collapse all
+        const expandAllBtn = this.container.querySelector('#hezl-expand-all');
+        if (expandAllBtn) {
+            expandAllBtn.addEventListener('click', () => {
+                this.expandAllFolders();
+            });
+        }
+
+        const collapseAllBtn = this.container.querySelector('#hezl-collapse-all');
+        if (collapseAllBtn) {
+            collapseAllBtn.addEventListener('click', () => {
+                this.collapseAllFolders();
+            });
+        }
+
+        // Feature 4: Add bar button
+        const addBarBtn = this.container.querySelector('#hezl-add-bar');
+        if (addBarBtn) {
+            addBarBtn.addEventListener('click', () => {
+                this.addBar();
+            });
+        }
         
         document.addEventListener('click', (e) => {
             if (this.contextMenu && !this.contextMenu.contains(e.target)) {
@@ -939,11 +1062,577 @@ class HezlPromptWidget {
         try {
             this.folderStructure = await this.safeFetchJson('/hezl_prompt/get_structure');
             this.renderFolderTree();
-            if (this.selectedPrompts.length > 0) {
+            if (this.getTotalSelectedCount() > 0) {
                 this.updateFolderCounts();
             }
         } catch (error) {
             console.error('Failed to load folder structure:', error);
+        }
+    }
+    
+    // ==================== Multi-bar management ====================
+
+    addBar() {
+        if (this.bars.length >= 10) {
+            alert('最多支持10个词组栏');
+            return;
+        }
+        this.bars.push({
+            name: '',
+            prompts: [],
+            weights: {},
+            disabled: {}
+        });
+        this.selectedBarIndex = this.bars.length - 1;
+        this.renderBars();
+        this.updateOutput();
+        this.updateNodeOutputs();
+    }
+
+    removeBar(barIndex) {
+        if (this.bars.length <= 1) {
+            alert('至少需要保留一个词组栏');
+            return;
+        }
+        if (confirm('确定要移除此词组栏吗？')) {
+            this.bars.splice(barIndex, 1);
+            // Adjust selectedBarIndex
+            if (this.selectedBarIndex >= this.bars.length) {
+                this.selectedBarIndex = this.bars.length - 1;
+            } else if (this.selectedBarIndex > barIndex) {
+                this.selectedBarIndex--;
+            } else if (this.selectedBarIndex === barIndex) {
+                this.selectedBarIndex = Math.min(barIndex, this.bars.length - 1);
+            }
+            this.renderBars();
+            this.updateOutput();
+            this.updateNodeOutputs();
+            this.renderPromptList(); // Update count badges
+        }
+    }
+
+    getBarLabel(index) {
+        const bar = this.bars[index];
+        if (bar && bar.name) {
+            return bar.name;
+        }
+        return `词组栏${String(index + 1).padStart(2, '0')}`;
+    }
+
+    renameBar(barIndex, labelEl) {
+        const bar = this.bars[barIndex];
+        const currentName = bar.name || `词组栏${String(barIndex + 1).padStart(2, '0')}`;
+
+        // Replace label with input
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = currentName;
+        input.className = 'hezl-bar-rename-input';
+        input.style.cssText = 'background: #1a1a1a; color: #fff; border: 1px solid #27ae60; border-radius: 4px; padding: 2px 6px; font-size: 12px; font-weight: bold; width: 120px; outline: none; box-shadow: 0 0 0 2px rgba(39, 174, 96, 0.2);';
+
+        labelEl.style.display = 'none';
+        labelEl.parentNode.insertBefore(input, labelEl);
+        input.focus();
+        input.select();
+
+        const finishRename = () => {
+            const newName = input.value.trim();
+            bar.name = newName;
+            input.remove();
+            labelEl.style.display = '';
+            labelEl.textContent = this.getBarLabel(barIndex);
+            this.updateOutput();
+            this.updateNodeOutputs();
+        };
+
+        input.addEventListener('blur', finishRename);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                input.blur();
+            } else if (e.key === 'Escape') {
+                input.value = currentName;
+                input.blur();
+            }
+        });
+    }
+
+    // Legacy compatibility getters
+    get selectedPrompts() {
+        return this.bars.reduce((acc, bar) => acc.concat(bar.prompts), []);
+    }
+
+    get promptWeights() {
+        const merged = {};
+        this.bars.forEach(bar => Object.assign(merged, bar.weights));
+        return merged;
+    }
+
+    get promptDisabled() {
+        const merged = {};
+        this.bars.forEach(bar => Object.assign(merged, bar.disabled));
+        return merged;
+    }
+
+    getTotalSelectedCount() {
+        return this.bars.reduce((acc, bar) => acc + bar.prompts.length, 0);
+    }
+
+    // ==================== Feature 4: Render bars ====================
+
+    renderBars() {
+        let html = '';
+        this.bars.forEach((bar, barIndex) => {
+            const label = this.getBarLabel(barIndex);
+            const isSelected = this.selectedBarIndex === barIndex ? 'selected-bar' : '';
+            html += `
+                <div class="hezl-bar-section ${isSelected}" data-bar-index="${barIndex}">
+                    <div class="hezl-bar-header">
+                        <div class="hezl-bar-actions-left">
+                            <span class="hezl-bar-label" data-bar="${barIndex}" title="双击重命名">${label}</span>
+                            <button class="hezl-bar-rename-btn" data-bar="${barIndex}" title="重命名词组栏">✎</button>
+                            <button class="hezl-btn small danger hezl-bar-remove-all" data-bar="${barIndex}">移除全部</button>
+                            <button class="hezl-btn small warning hezl-bar-disable-all" data-bar="${barIndex}">全部禁用</button>
+                            <button class="hezl-btn small success hezl-bar-enable-all" data-bar="${barIndex}">全部启用</button>
+                        </div>
+                        <div class="hezl-bar-actions-right">
+                            <button class="hezl-btn small danger hezl-bar-delete" data-bar="${barIndex}" title="删除词组栏">✕</button>
+                        </div>
+                    </div>
+                    <div class="hezl-bar-drop-zone" data-bar-index="${barIndex}">
+                        <div class="hezl-preview-container" data-bar-index="${barIndex}">
+            `;
+            if (bar.prompts.length === 0) {
+                html += '<div class="hezl-empty-state" style="width: 100%; padding: 10px;">点击上方词组添加到此处</div>';
+            } else {
+                bar.prompts.forEach((prompt, promptIndex) => {
+                    const pid = prompt.id;
+                    const weight = bar.weights[pid] || 1.0;
+                    const isDisabled = bar.disabled[pid] || false;
+                    html += `
+                        <div class="hezl-preview-item ${isDisabled ? 'disabled' : ''}" data-bar-index="${barIndex}" data-prompt-index="${promptIndex}" data-prompt-id="${pid}" draggable="true">
+                            <span class="hezl-preview-text" title="${this.escapeHtml(prompt.content)}">${this.escapeHtml(prompt.title)}</span>
+                            <div class="hezl-weight-control">
+                                <button class="hezl-weight-btn" data-action="decrease">-</button>
+                                <span class="hezl-weight-value">${weight.toFixed(2)}</span>
+                                <button class="hezl-weight-btn" data-action="increase">+</button>
+                            </div>
+                            <button class="hezl-remove-btn" data-bar-index="${barIndex}" data-prompt-index="${promptIndex}" data-prompt-id="${pid}">✕</button>
+                        </div>
+                    `;
+                });
+            }
+            html += `
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        this.barsContainer.innerHTML = html;
+        this.bindBarEvents();
+    }
+
+    bindBarEvents() {
+        // Bar action buttons
+        this.barsContainer.querySelectorAll('.hezl-bar-remove-all').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const barIndex = parseInt(btn.dataset.bar);
+                this.removeAllPromptsFromBar(barIndex);
+            });
+        });
+
+        this.barsContainer.querySelectorAll('.hezl-bar-disable-all').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const barIndex = parseInt(btn.dataset.bar);
+                this.toggleAllPromptsDisabledInBar(barIndex, true);
+            });
+        });
+
+        this.barsContainer.querySelectorAll('.hezl-bar-enable-all').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const barIndex = parseInt(btn.dataset.bar);
+                this.toggleAllPromptsDisabledInBar(barIndex, false);
+            });
+        });
+
+        // Delete bar button
+        this.barsContainer.querySelectorAll('.hezl-bar-delete').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const barIndex = parseInt(btn.dataset.bar);
+                this.removeBar(barIndex);
+            });
+        });
+
+        // Rename button click
+        this.barsContainer.querySelectorAll('.hezl-bar-rename-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const barIndex = parseInt(btn.dataset.bar);
+                const label = this.barsContainer.querySelector(`.hezl-bar-label[data-bar="${barIndex}"]`);
+                if (label) {
+                    this.renameBar(barIndex, label);
+                }
+            });
+        });
+
+        // Double-click on bar label to rename
+        this.barsContainer.querySelectorAll('.hezl-bar-label').forEach(label => {
+            label.addEventListener('dblclick', (e) => {
+                e.stopPropagation();
+                const barIndex = parseInt(label.dataset.bar);
+                this.renameBar(barIndex, label);
+            });
+        });
+
+        // Click on bar section to select it
+        this.barsContainer.querySelectorAll('.hezl-bar-section').forEach(section => {
+            section.addEventListener('click', (e) => {
+                // Don't select if clicking on buttons or preview items
+                if (e.target.closest('.hezl-bar-header') || e.target.closest('.hezl-preview-item') || e.target.closest('.hezl-remove-btn') || e.target.closest('.hezl-weight-btn')) return;
+                const barIndex = parseInt(section.dataset.barIndex);
+                this.selectedBarIndex = barIndex;
+                this.renderBars();
+            });
+            // Click on bar header to select
+            section.querySelector('.hezl-bar-header')?.addEventListener('click', (e) => {
+                if (e.target.closest('button')) return;
+                const barIndex = parseInt(section.dataset.barIndex);
+                this.selectedBarIndex = barIndex;
+                this.renderBars();
+            });
+        });
+
+        // Preview item events
+        this.barsContainer.querySelectorAll('.hezl-preview-item').forEach(item => {
+            const barIndex = parseInt(item.dataset.barIndex);
+            const promptIndex = parseInt(item.dataset.promptIndex);
+
+            // Click to toggle disabled
+            item.addEventListener('click', (e) => {
+                if (!e.target.classList.contains('hezl-weight-btn') &&
+                    !e.target.classList.contains('hezl-remove-btn')) {
+                    const prompt = this.bars[barIndex].prompts[promptIndex];
+                    if (prompt) {
+                        const pid = prompt.id;
+                        this.bars[barIndex].disabled[pid] = !this.bars[barIndex].disabled[pid];
+                        this.renderBars();
+                        this.updateOutput();
+                    }
+                }
+            });
+
+            // Feature 3: Right-click context menu on preview items
+            item.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                const prompt = this.bars[barIndex].prompts[promptIndex];
+                if (prompt) {
+                    this.showContextMenu(e, '', 'preview-item', {
+                        title: prompt.title,
+                        folder: prompt.folder,
+                        barIndex: barIndex,
+                        promptIndex: promptIndex,
+                        promptId: prompt.id
+                    });
+                }
+            });
+
+            // Feature 6: Drag between bars
+            item.addEventListener('dragstart', (e) => {
+                item.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', JSON.stringify({
+                    barIndex: barIndex,
+                    promptIndex: promptIndex
+                }));
+            });
+
+            item.addEventListener('dragend', () => {
+                item.classList.remove('dragging');
+                this.barsContainer.querySelectorAll('.hezl-preview-item').forEach(i => {
+                    i.classList.remove('drag-over', 'insert-before', 'insert-after');
+                });
+                this.barsContainer.querySelectorAll('.hezl-bar-drop-zone').forEach(z => {
+                    z.classList.remove('drag-over-bar');
+                });
+            });
+
+            item.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                if (item.classList.contains('dragging')) return;
+
+                this.barsContainer.querySelectorAll('.hezl-preview-item').forEach(i => {
+                    if (i !== item) {
+                        i.classList.remove('insert-before', 'insert-after');
+                    }
+                });
+
+                const rect = item.getBoundingClientRect();
+                const midX = rect.left + rect.width / 2;
+                if (e.clientX < midX) {
+                    item.classList.remove('insert-after');
+                    item.classList.add('insert-before');
+                } else {
+                    item.classList.remove('insert-before');
+                    item.classList.add('insert-after');
+                }
+            });
+
+            item.addEventListener('dragenter', (e) => {
+                e.preventDefault();
+                if (!item.classList.contains('dragging')) {
+                    item.classList.add('drag-over');
+                }
+            });
+
+            item.addEventListener('dragleave', (e) => {
+                const rect = item.getBoundingClientRect();
+                if (e.clientX < rect.left || e.clientX > rect.right ||
+                    e.clientY < rect.top || e.clientY > rect.bottom) {
+                    item.classList.remove('drag-over', 'insert-before', 'insert-after');
+                }
+            });
+
+            item.addEventListener('drop', (e) => {
+                e.preventDefault();
+                item.classList.remove('drag-over', 'insert-before', 'insert-after');
+                try {
+                    const dragData = JSON.parse(e.dataTransfer.getData('text/plain'));
+                    const fromBarIndex = dragData.barIndex;
+                    const fromPromptIndex = dragData.promptIndex;
+                    const toBarIndex = barIndex;
+
+                    let toPromptIndex = promptIndex;
+                    const rect = item.getBoundingClientRect();
+                    const midX = rect.left + rect.width / 2;
+                    if (e.clientX >= midX) {
+                        toPromptIndex = promptIndex + 1;
+                    }
+
+                    this.movePromptBetweenBars(fromBarIndex, fromPromptIndex, toBarIndex, toPromptIndex);
+                } catch (err) {}
+            });
+        });
+
+        // Feature 6: Drop zone for bars (drop into empty area)
+        this.barsContainer.querySelectorAll('.hezl-bar-drop-zone').forEach(zone => {
+            const barIndex = parseInt(zone.dataset.barIndex);
+
+            zone.addEventListener('dragover', (e) => {
+                if (!e.target.closest('.hezl-preview-item')) {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    zone.classList.add('drag-over-bar');
+                }
+            });
+
+            zone.addEventListener('dragleave', (e) => {
+                if (!zone.contains(e.relatedTarget)) {
+                    zone.classList.remove('drag-over-bar');
+                }
+            });
+
+            zone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                zone.classList.remove('drag-over-bar');
+                if (e.target.closest('.hezl-preview-item')) return;
+
+                try {
+                    const dragData = JSON.parse(e.dataTransfer.getData('text/plain'));
+                    const fromBarIndex = dragData.barIndex;
+                    const fromPromptIndex = dragData.promptIndex;
+                    const toBarIndex = barIndex;
+                    const toPromptIndex = this.bars[toBarIndex].prompts.length;
+                    this.movePromptBetweenBars(fromBarIndex, fromPromptIndex, toBarIndex, toPromptIndex);
+                } catch (err) {}
+            });
+        });
+
+        // Weight buttons
+        this.barsContainer.querySelectorAll('.hezl-weight-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const item = btn.closest('.hezl-preview-item');
+                const barIndex = parseInt(item.dataset.barIndex);
+                const promptIndex = parseInt(item.dataset.promptIndex);
+                const prompt = this.bars[barIndex].prompts[promptIndex];
+                if (!prompt) return;
+
+                const pid = prompt.id;
+                const action = btn.dataset.action;
+                let weight = this.bars[barIndex].weights[pid] || 1.0;
+                if (action === 'increase') {
+                    weight = Math.min(2.0, weight + 0.1);
+                } else {
+                    weight = Math.max(0.1, weight - 0.1);
+                }
+                this.bars[barIndex].weights[pid] = weight;
+                this.renderBars();
+                this.updateOutput();
+            });
+        });
+
+        // Remove buttons
+        this.barsContainer.querySelectorAll('.hezl-remove-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const barIndex = parseInt(btn.dataset.barIndex);
+                const promptIndex = parseInt(btn.dataset.promptIndex);
+                this.removePromptFromBarByIndex(barIndex, promptIndex);
+            });
+        });
+    }
+
+    // ==================== Feature 6: Move prompt between bars ====================
+
+    movePromptBetweenBars(fromBarIndex, fromPromptIndex, toBarIndex, toPromptIndex) {
+        if (fromBarIndex === toBarIndex && fromPromptIndex === toPromptIndex) return;
+
+        const fromBar = this.bars[fromBarIndex];
+        const toBar = this.bars[toBarIndex];
+        const prompt = fromBar.prompts[fromPromptIndex];
+        if (!prompt) return;
+
+        const pid = prompt.id;
+        const weight = fromBar.weights[pid] || 1.0;
+        const isDisabled = fromBar.disabled[pid] || false;
+
+        // Remove from source
+        fromBar.prompts.splice(fromPromptIndex, 1);
+        delete fromBar.weights[pid];
+        delete fromBar.disabled[pid];
+
+        // Adjust target index if same bar and after source
+        if (fromBarIndex === toBarIndex && fromPromptIndex < toPromptIndex) {
+            toPromptIndex--;
+        }
+
+        // Insert into target
+        toBar.prompts.splice(toPromptIndex, 0, prompt);
+        toBar.weights[pid] = weight;
+        toBar.disabled[pid] = isDisabled;
+
+        this.renderBars();
+        this.updateFolderCounts();
+        this.renderPromptList();
+        this.updateOutput();
+    }
+
+    // ==================== Bar-level operations ====================
+
+    removeAllPromptsFromBar(barIndex) {
+        const bar = this.bars[barIndex];
+        if (bar.prompts.length === 0) return;
+        if (confirm('确定要移除此词组栏中的所有词组吗？')) {
+            bar.prompts = [];
+            bar.weights = {};
+            bar.disabled = {};
+            this.renderBars();
+            this.updateFolderCounts();
+            this.renderPromptList();
+            this.updateOutput();
+        }
+    }
+
+    toggleAllPromptsDisabledInBar(barIndex, disabled) {
+        const bar = this.bars[barIndex];
+        for (const prompt of bar.prompts) {
+            bar.disabled[prompt.id] = disabled;
+        }
+        this.renderBars();
+        this.updateOutput();
+    }
+
+    togglePromptDisabledInBar(barIndex, promptTitle) {
+        const bar = this.bars[barIndex];
+        // Toggle all prompts with this title in the bar
+        for (const prompt of bar.prompts) {
+            if (prompt.title === promptTitle) {
+                bar.disabled[prompt.id] = !bar.disabled[prompt.id];
+            }
+        }
+        this.renderBars();
+        this.updateOutput();
+    }
+
+    removePromptFromBar(barIndex, promptTitle) {
+        const bar = this.bars[barIndex];
+        const index = bar.prompts.findIndex(p => p.title === promptTitle);
+        if (index !== -1) {
+            const pid = bar.prompts[index].id;
+            bar.prompts.splice(index, 1);
+            delete bar.weights[pid];
+            delete bar.disabled[pid];
+            this.renderBars();
+            this.updateFolderCounts();
+            this.renderPromptList();
+            this.updateOutput();
+        }
+    }
+
+    removePromptFromBarByIndex(barIndex, promptIndex) {
+        const bar = this.bars[barIndex];
+        if (promptIndex < 0 || promptIndex >= bar.prompts.length) return;
+        const pid = bar.prompts[promptIndex].id;
+        bar.prompts.splice(promptIndex, 1);
+        delete bar.weights[pid];
+        delete bar.disabled[pid];
+        this.renderBars();
+        this.updateFolderCounts();
+        this.renderPromptList();
+        this.updateOutput();
+    }
+
+    // ==================== Feature 3: Locate prompt folder ====================
+
+    locatePromptFolder(promptFolder) {
+        if (!promptFolder) return;
+        // Normalize path separators - backend may use \ on Windows
+        const normalizedPath = promptFolder.replace(/\\/g, '/');
+        const parts = normalizedPath.split('/');
+
+        // Expand all ancestor folders so the target item is visible
+        // Try both / and \ separators since folder tree data-path may use either
+        let currentPath = '';
+        for (let i = 0; i < parts.length - 1; i++) {
+            if (!parts[i]) continue;
+            currentPath = currentPath ? currentPath + '/' + parts[i] : parts[i];
+            this.expandedFolders.add(currentPath);
+            // Also add backslash variant
+            this.expandedFolders.add(currentPath.replace(/\//g, '\\'));
+        }
+
+        // Re-render tree with expanded folders, then select and scroll
+        this.renderFolderTree();
+
+        // Find the target item using both path formats
+        const targetItem = this.folderTree.querySelector(`.hezl-folder-item[data-path="${CSS.escape(normalizedPath)}"]`) ||
+                          this.folderTree.querySelector(`.hezl-folder-item[data-path="${CSS.escape(promptFolder)}"]`);
+
+        if (targetItem) {
+            // Manually select the item
+            this.folderTree.querySelectorAll('.hezl-folder-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            targetItem.classList.add('selected');
+            this.currentFolder = targetItem.dataset.path;
+            this.currentFolderType = targetItem.dataset.type;
+
+            // Load prompts for this folder
+            this.selectFolder(targetItem.dataset.path, targetItem.dataset.type);
+
+            // Scroll into view
+            requestAnimationFrame(() => {
+                targetItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
+        } else {
+            // Fallback: try selectFolder with original path
+            this.selectFolder(promptFolder, promptFolder.toLowerCase().endsWith('.csv') ? 'csv' : 'folder');
         }
     }
     
@@ -971,6 +1660,32 @@ class HezlPromptWidget {
             }
         }
         return count;
+    }
+
+    // Feature 2: Expand all / Collapse all
+    expandAllFolders() {
+        this._collectAllFolderPaths(this.folderStructure);
+        this.renderFolderTree();
+    }
+
+    collapseAllFolders() {
+        this.expandedFolders.clear();
+        this.renderFolderTree();
+    }
+
+    _collectAllFolderPaths(structure) {
+        if (!structure) return;
+        const traverse = (node) => {
+            if (node.type === 'folder' && node.path) {
+                this.expandedFolders.add(node.path);
+            }
+            if (node.children) {
+                node.children.forEach(traverse);
+            }
+        };
+        if (structure.default) {
+            traverse(structure.default);
+        }
     }
     
     renderFolderTree() {
@@ -1063,39 +1778,40 @@ class HezlPromptWidget {
         this.contextMenu.className = 'hezl-context-menu';
         
         let menuHtml = '';
+
         if (type === 'folder') {
             menuHtml = `
-                <div class="hezl-context-menu-item" data-action="add">添加子文件夹</div>
-                <div class="hezl-context-menu-item" data-action="rename">重命名</div>
-                <div class="hezl-context-menu-item" data-action="delete">删除</div>
+                <div class="hezl-context-menu-item" data-action="add-folder">添加子文件夹</div>
+                <div class="hezl-context-menu-item" data-action="add-csv">新建CSV文件</div>
+                <div class="hezl-context-menu-item" data-action="rename-folder">重命名</div>
+                <div class="hezl-context-menu-item" data-action="delete-folder">删除</div>
             `;
         } else if (type === 'csv') {
             menuHtml = `
-                <div class="hezl-context-menu-item" data-action="clear">取消选择</div>
-            `;
-        }
-        
-        if (type === 'folder') {
-            menuHtml = `
-                <div class="hezl-context-menu-item" data-action="add-folder">\u6dfb\u52a0\u5b50\u6587\u4ef6\u5939</div>
-                <div class="hezl-context-menu-item" data-action="add-csv">\u65b0\u5efaCSV\u6587\u4ef6</div>
-                <div class="hezl-context-menu-item" data-action="rename-folder">\u91cd\u547d\u540d</div>
-                <div class="hezl-context-menu-item" data-action="delete-folder">\u5220\u9664</div>
-            `;
-        } else if (type === 'csv') {
-            menuHtml = `
-                <div class="hezl-context-menu-item" data-action="add-prompt">\u6dfb\u52a0\u8bcd\u7ec4</div>
-                <div class="hezl-context-menu-item" data-action="rename-csv">\u91cd\u547d\u540d</div>
-                <div class="hezl-context-menu-item" data-action="delete-csv">\u5220\u9664</div>
+                <div class="hezl-context-menu-item" data-action="add-prompt">添加词组</div>
+                <div class="hezl-context-menu-item" data-action="batch-move">批量移动词组到词组栏</div>
+                <div class="hezl-context-menu-item" data-action="rename-csv">重命名</div>
+                <div class="hezl-context-menu-item" data-action="delete-csv">删除</div>
             `;
         } else if (type === 'prompt') {
+            // Feature 1: Add "在⬆位置添加新词组" and "在⬇位置添加新词组"
             menuHtml = `
-                <div class="hezl-context-menu-item" data-action="edit-prompt">\u7f16\u8f91</div>
-                <div class="hezl-context-menu-item" data-action="delete-prompt">\u5220\u9664</div>
+                <div class="hezl-context-menu-item" data-action="add-prompt-above">在⬆位置添加新词组</div>
+                <div class="hezl-context-menu-item" data-action="add-prompt-below">在⬇位置添加新词组</div>
+                <div class="hezl-context-menu-item" data-action="edit-prompt">编辑</div>
+                <div class="hezl-context-menu-item" data-action="delete-prompt">删除</div>
+            `;
+        } else if (type === 'preview-item') {
+            // Feature 3: Right-click on bottom preview items
+            menuHtml = `
+                <div class="hezl-context-menu-item" data-action="locate-folder">定位到词组所在目录</div>
+                <div class="hezl-context-menu-item" data-action="enable-prompt">启用</div>
+                <div class="hezl-context-menu-item" data-action="disable-prompt">禁用</div>
+                <div class="hezl-context-menu-item" data-action="delete-preview-prompt">删除</div>
             `;
         } else if (type === 'blank') {
             menuHtml = `
-                <div class="hezl-context-menu-item" data-action="refresh">\u5237\u65b0</div>
+                <div class="hezl-context-menu-item" data-action="refresh">刷新</div>
             `;
         }
 
@@ -1115,31 +1831,41 @@ class HezlPromptWidget {
                 } else if (action === 'rename-folder') {
                     this.showRenameFolderModal(path);
                 } else if (action === 'delete-folder') {
-                    if (confirm('\u786e\u5b9a\u5220\u9664\u6b64\u6587\u4ef6\u5939\u5417\uff1f')) {
+                    if (confirm('确定删除此文件夹吗？')) {
                         this.deleteFolder(path);
                     }
                 } else if (action === 'add-prompt') {
                     this.showAddPromptModal(path);
+                } else if (action === 'add-prompt-above') {
+                    this.showAddPromptAtPosition(extra.source || path, extra.index, 'above');
+                } else if (action === 'add-prompt-below') {
+                    this.showAddPromptAtPosition(extra.source || path, extra.index, 'below');
                 } else if (action === 'rename-csv') {
                     this.showRenameCsvModal(path);
                 } else if (action === 'delete-csv') {
-                    if (confirm('\u786e\u5b9a\u5220\u9664\u6b64CSV\u6587\u4ef6\u5417\uff1f')) {
+                    if (confirm('确定删除此CSV文件吗？')) {
                         this.deleteCsvFile(path);
                     }
                 } else if (action === 'edit-prompt') {
                     this.showEditPromptModal(extra.title, extra.source || path);
                 } else if (action === 'delete-prompt') {
                     this.deletePrompt(extra.title, extra.source || path);
+                } else if (action === 'batch-move') {
+                    this.showBatchMoveModal(path);
+                } else if (action === 'locate-folder') {
+                    this.locatePromptFolder(extra.folder);
+                } else if (action === 'enable-prompt') {
+                    this.bars[extra.barIndex].disabled[extra.promptId] = false;
+                    this.renderBars();
+                    this.updateOutput();
+                } else if (action === 'disable-prompt') {
+                    this.bars[extra.barIndex].disabled[extra.promptId] = true;
+                    this.renderBars();
+                    this.updateOutput();
+                } else if (action === 'delete-preview-prompt') {
+                    this.removePromptFromBarByIndex(extra.barIndex, extra.promptIndex);
                 } else if (action === 'refresh') {
                     this.loadFolderStructure();
-                } else if (action === 'add') {
-                    this.showAddFolderModal(path);
-                } else if (action === 'rename') {
-                    this.showRenameFolderModal(path);
-                } else if (action === 'delete') {
-                    this.deleteFolder(path);
-                } else if (action === 'clear') {
-                    this.clearFolderSelection(path);
                 }
                 this.hideContextMenu();
             });
@@ -1199,41 +1925,45 @@ class HezlPromptWidget {
             this.promptList.innerHTML = '<div class="hezl-empty-state">暂无词组</div>';
             return;
         }
-        
+
         let html = '';
         for (let index = 0; index < this.promptsData.length; index++) {
             const prompt = this.promptsData[index];
-            const isSelected = this.selectedPrompts.some(p => p.title === prompt.title);
+            const count = this.getPromptCountInBars(prompt.title);
+            const countBadge = count > 0 ? `<span class="hezl-prompt-count-badge">${count}</span>` : '';
             html += `
-                <div class="hezl-prompt-item-wrapper ${isSelected ? 'selected' : ''}" 
-                     data-title="${this.escapeHtml(prompt.title)}" 
+                <div class="hezl-prompt-item-wrapper"
+                     data-title="${this.escapeHtml(prompt.title)}"
                      data-folder="${this.currentFolder}"
                      data-source="${this.escapeHtml(prompt.source || this.currentFolder)}"
                      data-index="${index}">
                     <div class="hezl-prompt-item-content">
                         <div class="hezl-prompt-title">${this.escapeHtml(prompt.title)}</div>
+                        ${countBadge}
                     </div>
                     <button class="hezl-prompt-edit-btn" data-title="${this.escapeHtml(prompt.title)}">编辑</button>
                 </div>
             `;
         }
-        
+
         this.promptList.innerHTML = html;
-        
+
         const canReorder = this.currentFolderType === 'csv';
         this.promptList.querySelectorAll('.hezl-prompt-item-wrapper').forEach(wrapper => {
             const content = wrapper.querySelector('.hezl-prompt-item-content');
             if (!content) return;
-            
+
             content.addEventListener('click', () => {
                 this.togglePromptSelection(wrapper.dataset.title);
             });
-            
+
+            // Feature 1: Right-click on prompt with index info
             wrapper.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
                 this.showContextMenu(e, wrapper.dataset.source, 'prompt', {
                     title: wrapper.dataset.title,
-                    source: wrapper.dataset.source
+                    source: wrapper.dataset.source,
+                    index: parseInt(wrapper.dataset.index)
                 });
             });
             
@@ -1402,19 +2132,17 @@ class HezlPromptWidget {
                 });
                 
                 if (result.success) {
-                    const selectedIndex = this.selectedPrompts.findIndex(p => p.title === promptTitle);
-                    if (selectedIndex !== -1) {
-                        this.selectedPrompts[selectedIndex].title = newTitle;
-                        this.selectedPrompts[selectedIndex].content = newContent;
-                        if (prompt.title !== newTitle) {
-                            this.promptWeights[newTitle] = this.promptWeights[prompt.title];
-                            this.promptDisabled[newTitle] = this.promptDisabled[prompt.title];
-                            delete this.promptWeights[prompt.title];
-                            delete this.promptDisabled[prompt.title];
+                    // Update in all bars
+                    for (const bar of this.bars) {
+                        for (const p of bar.prompts) {
+                            if (p.title === promptTitle) {
+                                p.title = newTitle;
+                                p.content = newContent;
+                            }
                         }
-                        this.renderPreview();
-                        this.updateOutput();
                     }
+                    this.renderBars();
+                    this.updateOutput();
                     
                     modal.remove();
                     const nextType = folder && folder.toLowerCase().endsWith('.csv') ? 'csv' : this.currentFolderType;
@@ -1515,7 +2243,196 @@ class HezlPromptWidget {
             }
         });
     }
-    
+
+    // Feature 1: Add prompt at specific position (above/below)
+    async showAddPromptAtPosition(csvPath, index, position) {
+        if (!csvPath || csvPath.toLowerCase().endsWith('.csv') === false) {
+            alert('请选中csv文件');
+            return;
+        }
+
+        const folder = csvPath;
+
+        const modal = document.createElement('div');
+        modal.className = 'hezl-modal';
+        modal.innerHTML = `
+            <div class="hezl-modal-content">
+                <div class="hezl-modal-header">${position === 'above' ? '在上方添加新词组' : '在下方添加新词组'}</div>
+                <div class="hezl-form-group">
+                    <label class="hezl-form-label">标题</label>
+                    <input type="text" class="hezl-form-input" id="hezl-add-title" placeholder="输入标题">
+                </div>
+                <div class="hezl-form-group">
+                    <label class="hezl-form-label">内容</label>
+                    <textarea class="hezl-form-textarea" id="hezl-add-content" placeholder="输入内容"></textarea>
+                </div>
+                <div class="hezl-modal-actions">
+                    <button class="hezl-btn" id="hezl-modal-cancel">取消</button>
+                    <button class="hezl-btn success" id="hezl-modal-save">保存</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        modal.querySelector('#hezl-modal-cancel').addEventListener('click', () => {
+            modal.remove();
+        });
+
+        modal.querySelector('#hezl-modal-save').addEventListener('click', async () => {
+            const newTitle = modal.querySelector('#hezl-add-title').value.trim();
+            const newContent = modal.querySelector('#hezl-add-content').value.trim();
+
+            if (!newTitle) {
+                alert('请输入标题');
+                return;
+            }
+
+            const existingPrompt = this.promptsData.find(p => p.title === newTitle);
+            if (existingPrompt) {
+                alert('已存在同名词组，请使用不同的标题');
+                return;
+            }
+
+            try {
+                const insertIndex = position === 'above' ? index : index + 1;
+                const result = await this.safeFetchJson('/hezl_prompt/add_prompt_at', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        folder: folder,
+                        title: newTitle,
+                        content: newContent,
+                        index: insertIndex
+                    })
+                });
+
+                if (result.success) {
+                    modal.remove();
+                    await this.selectFolder(folder, 'csv');
+                } else {
+                    alert('保存失败: ' + result.error);
+                }
+            } catch (error) {
+                alert('保存失败: ' + error.message);
+            }
+        });
+
+        modal.addEventListener('mousedown', (e) => {
+            if (!e.target.closest('.hezl-modal-content')) {
+                modal.remove();
+            }
+        });
+    }
+
+    // Feature 1: Batch move CSV phrases to phrase bars
+    showBatchMoveModal(csvPath) {
+        if (!csvPath) return;
+
+        // Get all prompts from this CSV
+        const prompts = this.promptsData.filter(p => {
+            const source = p.source || this.currentFolder;
+            return source === csvPath;
+        });
+
+        if (prompts.length === 0) {
+            alert('当前CSV文件中没有词组');
+            return;
+        }
+
+        const modal = document.createElement('div');
+        modal.className = 'hezl-modal';
+        modal.innerHTML = `
+            <div class="hezl-modal-content" style="max-width: 500px;">
+                <div class="hezl-modal-header">批量移动词组到词组栏</div>
+                <div class="hezl-form-group">
+                    <label class="hezl-form-label">选择目标词组栏</label>
+                    <select class="hezl-form-input" id="hezl-batch-target-bar">
+                        ${this.bars.map((bar, i) => `<option value="${i}">${this.getBarLabel(i)}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="hezl-form-group">
+                    <label class="hezl-form-label">选择要移动的词组</label>
+                    <div class="hezl-batch-list" id="hezl-batch-prompt-list" style="max-height: 300px; overflow-y: auto; border: 1px solid #444; border-radius: 4px; padding: 8px;">
+                        <label style="display: flex; align-items: center; margin-bottom: 6px; cursor: pointer; color: #ccc;">
+                            <input type="checkbox" id="hezl-batch-select-all" checked style="margin-right: 8px;"> 全选
+                        </label>
+                        ${prompts.map((p, i) => `
+                            <label style="display: flex; align-items: center; margin-bottom: 4px; cursor: pointer; color: #ddd; font-size: 13px;">
+                                <input type="checkbox" class="hezl-batch-prompt-cb" data-index="${i}" checked style="margin-right: 8px;">
+                                ${this.escapeHtml(p.title)}
+                            </label>
+                        `).join('')}
+                    </div>
+                </div>
+                <div class="hezl-modal-actions">
+                    <button class="hezl-btn" id="hezl-modal-cancel">取消</button>
+                    <button class="hezl-btn success" id="hezl-modal-move">移动</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // Select all toggle
+        const selectAllCb = modal.querySelector('#hezl-batch-select-all');
+        const promptCbs = modal.querySelectorAll('.hezl-batch-prompt-cb');
+        selectAllCb.addEventListener('change', () => {
+            promptCbs.forEach(cb => { cb.checked = selectAllCb.checked; });
+        });
+        promptCbs.forEach(cb => {
+            cb.addEventListener('change', () => {
+                selectAllCb.checked = Array.from(promptCbs).every(c => c.checked);
+            });
+        });
+
+        modal.querySelector('#hezl-modal-cancel').addEventListener('click', () => {
+            modal.remove();
+        });
+
+        modal.querySelector('#hezl-modal-move').addEventListener('click', () => {
+            const targetBarIndex = parseInt(modal.querySelector('#hezl-batch-target-bar').value);
+            const selectedIndices = [];
+            promptCbs.forEach(cb => {
+                if (cb.checked) {
+                    selectedIndices.push(parseInt(cb.dataset.index));
+                }
+            });
+
+            if (selectedIndices.length === 0) {
+                alert('请至少选择一个词组');
+                return;
+            }
+
+            const targetBar = this.bars[targetBarIndex];
+            for (const idx of selectedIndices) {
+                const p = prompts[idx];
+                // Always add (allow duplicates)
+                const id = this._nextPromptId++;
+                targetBar.prompts.push({
+                    id: id,
+                    title: p.title,
+                    content: p.content,
+                    folder: p.source || csvPath
+                });
+                targetBar.weights[id] = 1.0;
+                targetBar.disabled[id] = false;
+            }
+
+            this.updateFolderCounts();
+            this.renderPromptList();
+            this.renderBars();
+            this.updateOutput();
+            modal.remove();
+        });
+
+        modal.addEventListener('mousedown', (e) => {
+            if (!e.target.closest('.hezl-modal-content')) {
+                modal.remove();
+            }
+        });
+    }
+
     showHoverPreview(e, prompt) {
         this.hideHoverPreview();
         
@@ -1563,221 +2480,67 @@ class HezlPromptWidget {
     togglePromptSelection(promptTitle) {
         const prompt = this.promptsData.find(p => p.title === promptTitle);
         if (!prompt) return;
-        
+
         const source = prompt.source || this.currentFolder;
-        const existingIndex = this.selectedPrompts.findIndex(p => p.title === promptTitle);
-        
-        if (existingIndex === -1) {
-            const newPrompt = {
-                title: prompt.title,
-                content: prompt.content,
-                folder: source
-            };
-            this.selectedPrompts.push(newPrompt);
-            this.promptWeights[promptTitle] = 1.0;
-            this.promptDisabled[promptTitle] = false;
-        } else {
-            this.selectedPrompts.splice(existingIndex, 1);
-            delete this.promptWeights[promptTitle];
-            delete this.promptDisabled[promptTitle];
-        }
-        
+        const targetBarIndex = this.selectedBarIndex;
+
+        // Always add to the selected bar (allow duplicates)
+        const id = this._nextPromptId++;
+        const newPrompt = {
+            id: id,
+            title: prompt.title,
+            content: prompt.content,
+            folder: source
+        };
+        this.bars[targetBarIndex].prompts.push(newPrompt);
+        this.bars[targetBarIndex].weights[id] = 1.0;
+        this.bars[targetBarIndex].disabled[id] = false;
+
         this.updateFolderCounts();
         this.renderPromptList();
-        this.renderPreview();
+        this.renderBars();
         this.updateOutput();
     }
-    
-    updateFolderCounts() {
-        this.folderSelectedCounts = {};
-        
-        for (const prompt of this.selectedPrompts) {
-            const folder = prompt.folder || '';
-            if (folder) {
-                this.folderSelectedCounts[folder] = (this.folderSelectedCounts[folder] || 0) + 1;
+
+    // Count how many times a prompt title appears across all bars
+    getPromptCountInBars(promptTitle) {
+        let count = 0;
+        for (const bar of this.bars) {
+            for (const p of bar.prompts) {
+                if (p.title === promptTitle) count++;
             }
         }
-        
+        return count;
+    }
+
+    updateFolderCounts() {
+        this.folderSelectedCounts = {};
+
+        for (const bar of this.bars) {
+            for (const prompt of bar.prompts) {
+                const folder = prompt.folder || '';
+                if (folder) {
+                    this.folderSelectedCounts[folder] = (this.folderSelectedCounts[folder] || 0) + 1;
+                }
+            }
+        }
+
         this.renderFolderTree();
     }
     
     syncSelectionState() {
         this.updateFolderCounts();
-        this.renderPreview();
+        this.renderBars();
         this.updateOutput();
-        
+
         if (this.promptsData.length > 0) {
             this.renderPromptList();
         }
     }
-    
-    renderPreview() {
-        if (this.selectedPrompts.length === 0) {
-            this.previewContainer.innerHTML = '<div class="hezl-empty-state" style="width: 100%; padding: 15px;">点击上方词组添加到预览</div>';
-            return;
-        }
-        
-        let html = '';
-        this.selectedPrompts.forEach((prompt, index) => {
-            const weight = this.promptWeights[prompt.title] || 1.0;
-            const isDisabled = this.promptDisabled[prompt.title] || false;
-            html += `
-                <div class="hezl-preview-item ${isDisabled ? 'disabled' : ''}" data-index="${index}" draggable="true">
-                    <span class="hezl-preview-text" title="${this.escapeHtml(prompt.content)}">${this.escapeHtml(prompt.title)}</span>
-                    <div class="hezl-weight-control">
-                        <button class="hezl-weight-btn" data-action="decrease">-</button>
-                        <span class="hezl-weight-value">${weight.toFixed(2)}</span>
-                        <button class="hezl-weight-btn" data-action="increase">+</button>
-                    </div>
-                    <button class="hezl-remove-btn" data-index="${index}">✕</button>
-                </div>
-            `;
-        });
-        
-        this.previewContainer.innerHTML = html;
-        
-        this.previewContainer.querySelectorAll('.hezl-preview-item').forEach(item => {
-            item.addEventListener('click', (e) => {
-                if (!e.target.classList.contains('hezl-weight-btn') && 
-                    !e.target.classList.contains('hezl-remove-btn')) {
-                    const index = parseInt(item.dataset.index);
-                    const prompt = this.selectedPrompts[index];
-                    if (prompt) {
-                        this.togglePromptDisabled(prompt.title);
-                    }
-                }
-            });
-            
-            item.addEventListener('dragstart', (e) => {
-                item.classList.add('dragging');
-                e.dataTransfer.effectAllowed = 'move';
-                e.dataTransfer.setData('text/plain', item.dataset.index);
-                e.dataTransfer.effectAllowed = 'move';
-            });
-            
-            item.addEventListener('dragend', () => {
-                item.classList.remove('dragging');
-                this.previewContainer.querySelectorAll('.hezl-preview-item').forEach(i => {
-                    i.classList.remove('drag-over', 'insert-before', 'insert-after');
-                });
-            });
-            
-            item.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'move';
-                
-                if (item.classList.contains('dragging')) return;
-                
-                this.previewContainer.querySelectorAll('.hezl-preview-item').forEach(i => {
-                    if (i !== item) {
-                        i.classList.remove('insert-before', 'insert-after');
-                    }
-                });
-                
-                const rect = item.getBoundingClientRect();
-                const midX = rect.left + rect.width / 2;
-                
-                if (e.clientX < midX) {
-                    item.classList.remove('insert-after');
-                    item.classList.add('insert-before');
-                } else {
-                    item.classList.remove('insert-before');
-                    item.classList.add('insert-after');
-                }
-            });
-            
-            item.addEventListener('dragenter', (e) => {
-                e.preventDefault();
-                if (!item.classList.contains('dragging')) {
-                    item.classList.add('drag-over');
-                }
-            });
-            
-            item.addEventListener('dragleave', (e) => {
-                const rect = item.getBoundingClientRect();
-                if (e.clientX < rect.left || e.clientX > rect.right || 
-                    e.clientY < rect.top || e.clientY > rect.bottom) {
-                    item.classList.remove('drag-over', 'insert-before', 'insert-after');
-                }
-            });
-            
-            item.addEventListener('drop', (e) => {
-                e.preventDefault();
-                item.classList.remove('drag-over', 'insert-before', 'insert-after');
-                const dragIndex = parseInt(e.dataTransfer.getData('text/plain'));
-                let dropIndex = parseInt(item.dataset.index);
-                
-                const rect = item.getBoundingClientRect();
-                const midX = rect.left + rect.width / 2;
-                
-                if (e.clientX >= midX) {
-                    dropIndex = dropIndex + 1;
-                }
-                
-                if (!isNaN(dragIndex) && !isNaN(dropIndex) && dragIndex !== dropIndex) {
-                    this.reorderPrompts(dragIndex, dropIndex);
-                }
-            });
-        });
-        
-        this.previewContainer.querySelectorAll('.hezl-weight-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const item = btn.closest('.hezl-preview-item');
-                const index = parseInt(item.dataset.index);
-                const prompt = this.selectedPrompts[index];
-                if (!prompt) return;
-                
-                const promptTitle = prompt.title;
-                const action = btn.dataset.action;
-                
-                let weight = this.promptWeights[promptTitle] || 1.0;
-                if (action === 'increase') {
-                    weight = Math.min(2.0, weight + 0.1);
-                } else {
-                    weight = Math.max(0.1, weight - 0.1);
-                }
-                this.promptWeights[promptTitle] = weight;
-                this.renderPreview();
-                this.updateOutput();
-            });
-        });
-        
-        this.previewContainer.querySelectorAll('.hezl-remove-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const index = parseInt(btn.dataset.index);
-                const prompt = this.selectedPrompts[index];
-                if (prompt) {
-                    this.removePromptByTitle(prompt.title);
-                }
-            });
-        });
-    }
-    
-    togglePromptDisabled(promptTitle) {
-        this.promptDisabled[promptTitle] = !this.promptDisabled[promptTitle];
-        this.renderPreview();
-        this.updateOutput();
-    }
-    
-    removePromptByTitle(promptTitle) {
-        const index = this.selectedPrompts.findIndex(p => p.title === promptTitle);
-        if (index !== -1) {
-            this.selectedPrompts.splice(index, 1);
-            delete this.promptWeights[promptTitle];
-            delete this.promptDisabled[promptTitle];
-            
-            this.updateFolderCounts();
-            this.renderPromptList();
-            this.renderPreview();
-            this.updateOutput();
-        }
-    }
-    
+
     async deletePrompt(promptTitle, promptSource) {
         if (!promptTitle || !promptSource) return;
-        if (!confirm('\u786e\u5b9a\u5220\u9664\u8be5\u8bcd\u7ec4\u5417?')) {
+        if (!confirm('确定删除该词组吗?')) {
             return;
         }
 
@@ -1797,60 +2560,28 @@ class HezlPromptWidget {
                     return !(p.title === promptTitle && source === promptSource);
                 });
 
-                const selectedIndex = this.selectedPrompts.findIndex(p => p.title === promptTitle && p.folder === promptSource);
-                if (selectedIndex !== -1) {
-                    this.selectedPrompts.splice(selectedIndex, 1);
-                    delete this.promptWeights[promptTitle];
-                    delete this.promptDisabled[promptTitle];
+                // Remove from all bars
+                for (const bar of this.bars) {
+                    for (let i = bar.prompts.length - 1; i >= 0; i--) {
+                        if (bar.prompts[i].title === promptTitle && bar.prompts[i].folder === promptSource) {
+                            const pid = bar.prompts[i].id;
+                            bar.prompts.splice(i, 1);
+                            delete bar.weights[pid];
+                            delete bar.disabled[pid];
+                        }
+                    }
                 }
 
                 this.updateFolderCounts();
                 this.renderPromptList();
-                this.renderPreview();
+                this.renderBars();
                 this.updateOutput();
             } else {
-                alert('\u5220\u9664\u5931\u8d25: ' + result.error);
+                alert('删除失败: ' + result.error);
             }
         } catch (error) {
-            alert('\u5220\u9664\u5931\u8d25: ' + error.message);
+            alert('删除失败: ' + error.message);
         }
-    }
-
-    removeAllPrompts() {
-        if (this.selectedPrompts.length === 0) return;
-        if (confirm('确定要移除所有已选词组吗？')) {
-            this.selectedPrompts = [];
-            this.promptWeights = {};
-            this.promptDisabled = {};
-            
-            this.updateFolderCounts();
-            this.renderPromptList();
-            this.renderPreview();
-            this.updateOutput();
-        }
-    }
-    
-    toggleAllPromptsDisabled(disabled) {
-        for (const prompt of this.selectedPrompts) {
-            this.promptDisabled[prompt.title] = disabled;
-        }
-        this.renderPreview();
-        this.updateOutput();
-    }
-    
-    reorderPrompts(fromIndex, toIndex) {
-        if (fromIndex === toIndex) return;
-        
-        const item = this.selectedPrompts.splice(fromIndex, 1)[0];
-        
-        if (fromIndex < toIndex) {
-            toIndex--;
-        }
-        
-        this.selectedPrompts.splice(toIndex, 0, item);
-        
-        this.renderPreview();
-        this.updateOutput();
     }
 
     async reorderPromptList(fromIndex, toIndex) {
@@ -1897,11 +2628,63 @@ class HezlPromptWidget {
             const widget = this.node.widgets.find(w => w.name === 'selected_prompts');
             if (widget) {
                 widget.value = JSON.stringify({
-                    prompts: this.selectedPrompts,
-                    weights: this.promptWeights,
-                    disabled: this.promptDisabled
+                    bars: this.bars
                 });
             }
+        }
+    }
+
+    // Feature 5: Dynamic output slots
+    updateNodeOutputs() {
+        if (!this.node) return;
+        const barCount = this.bars.length;
+        // Total outputs: 1 (输出全部) + barCount (词组栏01, 02, ...)
+        const outputCount = 1 + barCount;
+
+        // Update node output types and names
+        const returnTypes = [];
+        const returnNames = [];
+        returnTypes.push("STRING");
+        returnNames.push("输出全部");
+        for (let i = 0; i < barCount; i++) {
+            returnTypes.push("STRING");
+            returnNames.push(this.getBarLabel(i));
+        }
+
+        this.node.constructor.RETURN_TYPES = returnTypes;
+        this.node.constructor.RETURN_NAMES = returnNames;
+
+        // Update the node's outputs on the graph
+        if (this.node.outputs) {
+            // Remove extra outputs
+            while (this.node.outputs.length > outputCount) {
+                this.node.outputs.pop();
+            }
+            // Add missing outputs
+            while (this.node.outputs.length < outputCount) {
+                this.node.addOutput(returnNames[this.node.outputs.length], "STRING");
+            }
+            // Update names, labels, and types
+            for (let i = 0; i < outputCount; i++) {
+                this.node.outputs[i].name = returnNames[i];
+                this.node.outputs[i].label = returnNames[i];
+                this.node.outputs[i].type = "STRING";
+            }
+        }
+
+        // Update the node definition for serialization
+        const origNodeData = this.node.constructor.nodeData;
+        if (origNodeData) {
+            origNodeData.output = returnTypes;
+            origNodeData.output_name = returnNames;
+        }
+
+        // Force re-render and recalculate node size after output changes
+        if (this.node.setSize) {
+            this.node.setSize(this.node.size);
+        }
+        if (this.node.graph) {
+            this.node.graph.setDirtyCanvas(true, true);
         }
     }
     
@@ -1929,25 +2712,36 @@ class HezlPromptWidget {
             this.folderStructure.default.children.forEach(collectCsvPaths);
         }
         
-        const promptsToRemove = this.selectedPrompts.filter(p => {
-            return csvPaths.includes(p.folder) || p.folder === folderPath;
-        });
-        
-        if (promptsToRemove.length === 0) return;
-        
-        if (confirm(`确定要取消选择此文件夹中的 ${promptsToRemove.length} 个词组吗？`)) {
-            this.selectedPrompts = this.selectedPrompts.filter(p => {
-                return !csvPaths.includes(p.folder) && p.folder !== folderPath;
-            });
-            
-            for (const prompt of promptsToRemove) {
-                delete this.promptWeights[prompt.title];
-                delete this.promptDisabled[prompt.title];
+        const promptsToRemove = [];
+        for (const bar of this.bars) {
+            for (const p of bar.prompts) {
+                if (csvPaths.includes(p.folder) || p.folder === folderPath) {
+                    promptsToRemove.push(p);
+                }
             }
-            
+        }
+
+        if (promptsToRemove.length === 0) return;
+
+        if (confirm(`确定要取消选择此文件夹中的 ${promptsToRemove.length} 个词组吗？`)) {
+            for (const bar of this.bars) {
+                const idsToRemove = new Set();
+                bar.prompts = bar.prompts.filter(p => {
+                    if (csvPaths.includes(p.folder) || p.folder === folderPath) {
+                        idsToRemove.add(p.id);
+                        return false;
+                    }
+                    return true;
+                });
+                for (const pid of idsToRemove) {
+                    delete bar.weights[pid];
+                    delete bar.disabled[pid];
+                }
+            }
+
             this.updateFolderCounts();
             this.renderPromptList();
-            this.renderPreview();
+            this.renderBars();
             this.updateOutput();
         }
     }
@@ -2199,11 +2993,13 @@ class HezlPromptWidget {
 
                 if (result.success) {
                     const newPath = result.path || path;
-                    this.selectedPrompts.forEach(p => {
-                        if (p.folder === path) {
-                            p.folder = newPath;
-                        }
-                    });
+                    for (const bar of this.bars) {
+                        bar.prompts.forEach(p => {
+                            if (p.folder === path) {
+                                p.folder = newPath;
+                            }
+                        });
+                    }
                     this.promptsData.forEach(p => {
                         const source = p.source || this.currentFolder;
                         if (source === path) {
@@ -2269,9 +3065,22 @@ class HezlPromptWidget {
             });
             
             if (result.success) {
-                this.selectedPrompts = this.selectedPrompts.filter(p => p.folder !== csvPath);
+                for (const bar of this.bars) {
+                    const idsToRemove = new Set();
+                    bar.prompts = bar.prompts.filter(p => {
+                        if (p.folder === csvPath) {
+                            idsToRemove.add(p.id);
+                            return false;
+                        }
+                        return true;
+                    });
+                    for (const pid of idsToRemove) {
+                        delete bar.weights[pid];
+                        delete bar.disabled[pid];
+                    }
+                }
                 this.updateFolderCounts();
-                this.renderPreview();
+                this.renderBars();
                 this.updateOutput();
                 this.currentFolder = '';
                 this.currentFolderType = '';
@@ -2301,13 +3110,24 @@ class HezlPromptWidget {
             });
             
             if (result.success) {
-                this.selectedPrompts = this.selectedPrompts.filter(p => {
-                    return p.folder !== folderPath && 
-                           !p.folder.startsWith(folderPath + '/') && 
-                           !p.folder.startsWith(folderPath + '\\');
-                });
+                for (const bar of this.bars) {
+                    const idsToRemove = new Set();
+                    bar.prompts = bar.prompts.filter(p => {
+                        if (p.folder === folderPath ||
+                            p.folder.startsWith(folderPath + '/') ||
+                            p.folder.startsWith(folderPath + '\\')) {
+                            idsToRemove.add(p.id);
+                            return false;
+                        }
+                        return true;
+                    });
+                    for (const pid of idsToRemove) {
+                        delete bar.weights[pid];
+                        delete bar.disabled[pid];
+                    }
+                }
                 this.updateFolderCounts();
-                this.renderPreview();
+                this.renderBars();
                 this.updateOutput();
                 this.currentFolder = '';
                 this.currentFolderType = '';
@@ -2350,18 +3170,44 @@ app.registerExtension({
                 this.addDOMWidget('hezl_prompt_ui', 'hezl_prompt', hezlWidget.container, {
                     getValue: () => {
                         return JSON.stringify({
-                            prompts: hezlWidget.selectedPrompts,
-                            weights: hezlWidget.promptWeights,
-                            disabled: hezlWidget.promptDisabled
+                            bars: hezlWidget.bars
                         });
                     },
                     setValue: (value) => {
                         try {
                             const data = JSON.parse(value);
-                            hezlWidget.selectedPrompts = data.prompts || [];
-                            hezlWidget.promptWeights = data.weights || {};
-                            hezlWidget.promptDisabled = data.disabled || {};
+                            if (data.bars && Array.isArray(data.bars)) {
+                                hezlWidget.bars = data.bars;
+                            } else if (data.prompts) {
+                                // Legacy format - convert to single bar
+                                hezlWidget.bars = [{
+                                    name: '',
+                                    prompts: data.prompts || [],
+                                    weights: data.weights || {},
+                                    disabled: data.disabled || {}
+                                }];
+                            }
+                            // Ensure all prompts have unique ids
+                            for (const bar of hezlWidget.bars) {
+                                if (!bar.name) bar.name = '';
+                                for (const p of bar.prompts) {
+                                    if (!p.id) {
+                                        p.id = hezlWidget._nextPromptId++;
+                                    }
+                                }
+                                // Convert title-based weights/disabled keys to id-based
+                                const newWeights = {};
+                                const newDisabled = {};
+                                for (const p of bar.prompts) {
+                                    const pid = p.id;
+                                    newWeights[pid] = bar.weights[pid] !== undefined ? bar.weights[pid] : (bar.weights[p.title] !== undefined ? bar.weights[p.title] : 1.0);
+                                    newDisabled[pid] = bar.disabled[pid] !== undefined ? bar.disabled[pid] : (bar.disabled[p.title] !== undefined ? bar.disabled[p.title] : false);
+                                }
+                                bar.weights = newWeights;
+                                bar.disabled = newDisabled;
+                            }
                             hezlWidget.syncSelectionState();
+                            hezlWidget.updateNodeOutputs();
                         } catch (e) {}
                     }
                 });

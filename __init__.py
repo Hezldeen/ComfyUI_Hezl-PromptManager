@@ -84,6 +84,17 @@ async def add_prompt(request):
     )
     return web.json_response(result)
 
+@routes.post("/hezl_prompt/add_prompt_at")
+async def add_prompt_at(request):
+    data = await request.json()
+    result = data_manager.add_prompt_at(
+        folder=data.get("folder", ""),
+        title=data.get("title", ""),
+        content=data.get("content", ""),
+        index=data.get("index", 0)
+    )
+    return web.json_response(result)
+
 @routes.post("/hezl_prompt/create_csv_file")
 async def create_csv_file(request):
     data = await request.json()

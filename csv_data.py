@@ -317,22 +317,51 @@ class CSVDataManager:
     def add_prompt(self, folder, title, content):
         try:
             actual_path = os.path.join(self.csv_dir, folder)
-            
+
             if not os.path.isfile(actual_path) or not actual_path.endswith('.csv'):
                 return {"success": False, "error": "Invalid CSV file path"}
-            
+
             csv_path = actual_path
             prompts = self.read_csv_file(csv_path)
-            
+
             for prompt in prompts:
                 if prompt['title'] == title:
                     return {"success": False, "error": "Prompt already exists"}
-            
+
             prompts.append({
                 "title": title,
                 "content": content
             })
-            
+
+            if self.write_csv_file(csv_path, prompts):
+                return {"success": True}
+            else:
+                return {"success": False, "error": "Failed to write CSV file"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def add_prompt_at(self, folder, title, content, index):
+        try:
+            actual_path = os.path.join(self.csv_dir, folder)
+
+            if not os.path.isfile(actual_path) or not actual_path.endswith('.csv'):
+                return {"success": False, "error": "Invalid CSV file path"}
+
+            csv_path = actual_path
+            prompts = self.read_csv_file(csv_path)
+
+            for prompt in prompts:
+                if prompt['title'] == title:
+                    return {"success": False, "error": "Prompt already exists"}
+
+            # Clamp index to valid range
+            index = max(0, min(index, len(prompts)))
+
+            prompts.insert(index, {
+                "title": title,
+                "content": content
+            })
+
             if self.write_csv_file(csv_path, prompts):
                 return {"success": True}
             else:

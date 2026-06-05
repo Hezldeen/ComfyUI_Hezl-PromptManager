@@ -1,0 +1,12 @@
+# 开发环境
+.vscode/
+.trae/
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# 数据文件
+csv/Hezl/
