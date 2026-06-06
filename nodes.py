@@ -66,6 +66,7 @@ class HezlPromptNode:
                 prompts = bar.get("prompts", [])
                 weights = bar.get("weights", {})
                 disabled = bar.get("disabled", {})
+                separator = bar.get("prompt_separator", ", ")
                 result_parts = []
                 for p in prompts:
                     title = p.get("title", "")
@@ -79,7 +80,7 @@ class HezlPromptNode:
                     else:
                         formatted = content
                     result_parts.append(formatted)
-                return ", ".join(result_parts)
+                return separator.join(result_parts)
 
             # Build all outputs
             all_parts = []
@@ -89,7 +90,14 @@ class HezlPromptNode:
                 bar_results.append(bar_result)
                 all_parts.append(bar_result)
 
-            all_output = ", ".join(all_parts)
+            # Join bars using each bar's own bar_separator (separator between this bar and the next)
+            all_output = ""
+            for i, part in enumerate(all_parts):
+                if i > 0:
+                    # Use the previous bar's bar_separator
+                    prev_sep = bars[i - 1].get("bar_separator", ", ")
+                    all_output += prev_sep
+                all_output += part
 
             # Build results: first is all combined, then one per bar
             # Pad with empty strings for unused outputs

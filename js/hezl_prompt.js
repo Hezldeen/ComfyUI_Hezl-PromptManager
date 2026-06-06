@@ -840,6 +840,27 @@ const HEZL_PROMPT_CSS = `
     border: 2px solid #27ae60;
 }
 
+/* Bar drag-to-reorder */
+.hezl-bar-section.dragging {
+    opacity: 0.5;
+}
+
+.hezl-bar-section.insert-before {
+    border-top: 3px solid #27ae60;
+}
+
+.hezl-bar-section.insert-after {
+    border-bottom: 3px solid #27ae60;
+}
+
+.hezl-bar-header[draggable="true"] {
+    cursor: grab;
+}
+
+.hezl-bar-header[draggable="true"]:active {
+    cursor: grabbing;
+}
+
 /* Prompt count badge (right side of phrase item — compact filled pill) */
 .hezl-prompt-count-badge {
     display: inline-flex;
@@ -871,7 +892,9 @@ class HezlPromptWidget {
                 name: '词组栏01',
                 prompts: [],
                 weights: {},
-                disabled: {}
+                disabled: {},
+                prompt_separator: ', ',
+                bar_separator: ', '
             }
         ];
         this.selectedBarIndex = 0;
@@ -1103,7 +1126,9 @@ class HezlPromptWidget {
             name: `词组栏${String(newIndex + 1).padStart(2, '0')}`,
             prompts: [],
             weights: {},
-            disabled: {}
+            disabled: {},
+            prompt_separator: ', ',
+            bar_separator: ', '
         });
         this.selectedBarIndex = newIndex;
         this.renderBars();
@@ -1131,6 +1156,17 @@ class HezlPromptWidget {
             this.updateNodeOutputs();
             this.renderPromptList(); // Update count badges
         }
+    }
+
+    moveBar(fromIndex, toIndex) {
+        if (fromIndex === toIndex) return;
+        const bar = this.bars.splice(fromIndex, 1)[0];
+        this.bars.splice(toIndex, 0, bar);
+        // Update selectedBarIndex to follow the moved bar
+        this.selectedBarIndex = toIndex;
+        this.renderBars();
+        this.updateOutput();
+        this.updateNodeOutputs();
     }
 
     getBarLabel(index) {
@@ -1179,6 +1215,54 @@ class HezlPromptWidget {
         });
     }
 
+    showSeparatorModal(barIndex) {
+        const bar = this.bars[barIndex];
+        if (!bar) return;
+        const currentSep = bar.prompt_separator || ', ';
+        const currentBarSep = bar.bar_separator || ', ';
+
+        const modal = document.createElement('div');
+        modal.className = 'hezl-modal';
+        modal.innerHTML = `
+            <div class="hezl-modal-content">
+                <div class="hezl-modal-header">间隔符号设置</div>
+                <div class="hezl-form-group">
+                    <label class="hezl-form-label">词组间间隔符号</label>
+                    <input type="text" class="hezl-form-input" id="hezl-sep-prompt" value="${this.escapeHtml(currentSep)}" placeholder="默认: , ">
+                </div>
+                <div class="hezl-form-group">
+                    <label class="hezl-form-label">与下一个词组栏间隔符号</label>
+                    <input type="text" class="hezl-form-input" id="hezl-sep-bar" value="${this.escapeHtml(currentBarSep)}" placeholder="默认: , ">
+                </div>
+                <div class="hezl-modal-actions">
+                    <button class="hezl-btn" id="hezl-modal-cancel">取消</button>
+                    <button class="hezl-btn success" id="hezl-modal-save">确定</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        modal.querySelector('#hezl-modal-cancel').addEventListener('click', () => {
+            modal.remove();
+        });
+
+        modal.querySelector('#hezl-modal-save').addEventListener('click', () => {
+            const newSep = modal.querySelector('#hezl-sep-prompt').value;
+            const newBarSep = modal.querySelector('#hezl-sep-bar').value;
+            bar.prompt_separator = newSep;
+            bar.bar_separator = newBarSep;
+            this.updateOutput();
+            modal.remove();
+        });
+
+        modal.addEventListener('mousedown', (e) => {
+            if (!e.target.closest('.hezl-modal-content')) {
+                modal.remove();
+            }
+        });
+    }
+
     // Legacy compatibility getters
     get selectedPrompts() {
         return this.bars.reduce((acc, bar) => acc.concat(bar.prompts), []);
@@ -1209,7 +1293,7 @@ class HezlPromptWidget {
             const isSelected = this.selectedBarIndex === barIndex ? 'selected-bar' : '';
             html += `
                 <div class="hezl-bar-section ${isSelected}" data-bar-index="${barIndex}">
-                    <div class="hezl-bar-header">
+                    <div class="hezl-bar-header" draggable="true" data-bar-index="${barIndex}">
                         <div class="hezl-bar-actions-left">
                             <span class="hezl-bar-label" data-bar="${barIndex}" title="双击重命名">${label}</span>
                             <button class="hezl-btn small hezl-bar-rename-btn" data-bar="${barIndex}" title="重命名词组栏">重命名</button>
@@ -1218,6 +1302,7 @@ class HezlPromptWidget {
                             <button class="hezl-btn small success hezl-bar-enable-all" data-bar="${barIndex}">全部启用</button>
                         </div>
                         <div class="hezl-bar-actions-right">
+                            <button class="hezl-btn small hezl-bar-separator-btn" data-bar="${barIndex}" title="间隔符号设置">间隔符号</button>
                             <button class="hezl-btn small danger hezl-bar-delete" data-bar="${barIndex}" title="删除词组栏">✕</button>
                         </div>
                     </div>
@@ -1290,6 +1375,15 @@ class HezlPromptWidget {
             });
         });
 
+        // Separator button
+        this.barsContainer.querySelectorAll('.hezl-bar-separator-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const barIndex = parseInt(btn.dataset.bar);
+                this.showSeparatorModal(barIndex);
+            });
+        });
+
         // Rename button click
         this.barsContainer.querySelectorAll('.hezl-bar-rename-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -1326,6 +1420,100 @@ class HezlPromptWidget {
                 const barIndex = parseInt(section.dataset.barIndex);
                 this.selectedBarIndex = barIndex;
                 this.renderBars();
+            });
+        });
+
+        // Bar drag-to-reorder events
+        this.barsContainer.querySelectorAll('.hezl-bar-header[draggable="true"]').forEach(header => {
+            const barIndex = parseInt(header.dataset.barIndex);
+
+            header.addEventListener('dragstart', (e) => {
+                // Only start bar drag if not clicking on a button
+                if (e.target.closest('button')) {
+                    e.preventDefault();
+                    return;
+                }
+                const section = header.closest('.hezl-bar-section');
+                section.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', JSON.stringify({
+                    type: 'bar-reorder',
+                    barIndex: barIndex
+                }));
+            });
+
+            header.addEventListener('dragend', () => {
+                const section = header.closest('.hezl-bar-section');
+                section.classList.remove('dragging');
+                this.barsContainer.querySelectorAll('.hezl-bar-section').forEach(s => {
+                    s.classList.remove('insert-before', 'insert-after');
+                });
+            });
+        });
+
+        // Bar section as drop target for bar reordering
+        this.barsContainer.querySelectorAll('.hezl-bar-section').forEach(section => {
+            section.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                // Only show indicators for bar-reorder drags
+                // We check by trying to access dataTransfer types (can't read data during dragover)
+                const sectionDragging = this.barsContainer.querySelector('.hezl-bar-section.dragging');
+                if (!sectionDragging) return;
+                if (section === sectionDragging) return;
+
+                // Clear indicators on other sections
+                this.barsContainer.querySelectorAll('.hezl-bar-section').forEach(s => {
+                    if (s !== section) {
+                        s.classList.remove('insert-before', 'insert-after');
+                    }
+                });
+
+                const rect = section.getBoundingClientRect();
+                const midY = rect.top + rect.height / 2;
+                if (e.clientY < midY) {
+                    section.classList.remove('insert-after');
+                    section.classList.add('insert-before');
+                } else {
+                    section.classList.remove('insert-before');
+                    section.classList.add('insert-after');
+                }
+            });
+
+            section.addEventListener('dragleave', (e) => {
+                const rect = section.getBoundingClientRect();
+                if (e.clientX < rect.left || e.clientX > rect.right ||
+                    e.clientY < rect.top || e.clientY > rect.bottom) {
+                    section.classList.remove('insert-before', 'insert-after');
+                }
+            });
+
+            section.addEventListener('drop', (e) => {
+                e.preventDefault();
+                section.classList.remove('insert-before', 'insert-after');
+                // Check if this is a bar-reorder drag
+                try {
+                    const dragData = JSON.parse(e.dataTransfer.getData('text/plain'));
+                    if (dragData.type !== 'bar-reorder') return; // Not a bar drag, let prompt drag handle it
+
+                    const fromIndex = dragData.barIndex;
+                    const toIndex = parseInt(section.dataset.barIndex);
+                    if (fromIndex === toIndex) return;
+
+                    // Determine insert position based on mouse position
+                    const rect = section.getBoundingClientRect();
+                    const midY = rect.top + rect.height / 2;
+                    let insertIndex = toIndex;
+                    if (e.clientY >= midY) {
+                        insertIndex = toIndex + 1;
+                    }
+                    // Adjust for removal of source
+                    if (fromIndex < insertIndex) {
+                        insertIndex--;
+                    }
+
+                    this.moveBar(fromIndex, insertIndex);
+                } catch (err) {}
             });
         });
 
@@ -3709,7 +3897,9 @@ app.registerExtension({
                                     name: '词组栏01',
                                     prompts: data.prompts || [],
                                     weights: data.weights || {},
-                                    disabled: data.disabled || {}
+                                    disabled: data.disabled || {},
+                                    prompt_separator: ', ',
+                                    bar_separator: ', '
                                 }];
                             }
                             // Ensure all prompts have unique ids
@@ -3717,6 +3907,12 @@ app.registerExtension({
                                 const bar = hezlWidget.bars[bi];
                                 if (!bar.name) {
                                     bar.name = `词组栏${String(bi + 1).padStart(2, '0')}`;
+                                }
+                                if (bar.prompt_separator === undefined) {
+                                    bar.prompt_separator = ', ';
+                                }
+                                if (bar.bar_separator === undefined) {
+                                    bar.bar_separator = ', ';
                                 }
                                 for (const p of bar.prompts) {
                                     if (!p.id) {
