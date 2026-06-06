@@ -1,6 +1,15 @@
 import json
 
 MAX_BARS = 10
+# Default number of bars shown on a freshly created node (1 bar => 2 outputs).
+DEFAULT_BARS = 1
+
+
+def _bar_label(index, name=None):
+    if name:
+        return name
+    return f"词组栏{str(index + 1).zfill(2)}"
+
 
 class HezlPromptNode:
     @classmethod
@@ -15,9 +24,11 @@ class HezlPromptNode:
             },
         }
 
-    # Define max outputs: 1 (输出全部) + MAX_BARS
+    # Source of truth: the maximum number of outputs (1 + MAX_BARS).
+    # The frontend dynamically trims the visible output slots to match the
+    # current bar count (default 1 bar => only "输出全部" and "词组栏01" are visible).
     RETURN_TYPES = ("STRING",) * (1 + MAX_BARS)
-    RETURN_NAMES = ("输出全部",) + tuple(f"词组栏{str(i+1).zfill(2)}" for i in range(MAX_BARS))
+    RETURN_NAMES = ("输出全部",) + tuple(_bar_label(i) for i in range(MAX_BARS))
     FUNCTION = "generate_prompt"
     CATEGORY = "Hezl-Node/Prompt"
     OUTPUT_NODE = True
@@ -40,10 +51,16 @@ class HezlPromptNode:
                 weights = data.get("weights", {})
                 disabled = data.get("disabled", {})
                 bars = [{
+                    "name": _bar_label(0),
                     "prompts": prompts,
                     "weights": weights,
                     "disabled": disabled
                 }]
+
+            # Make sure every bar has a name; otherwise label it with its index
+            for i, bar in enumerate(bars):
+                if not bar.get("name"):
+                    bar["name"] = _bar_label(i)
 
             def format_bar(bar):
                 prompts = bar.get("prompts", [])

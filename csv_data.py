@@ -192,6 +192,48 @@ class CSVDataManager:
             return {"success": True, "path": new_rel_path}
         except Exception as e:
             return {"success": False, "error": str(e)}
+
+    def move_csv_file(self, csv_path, target_folder):
+        try:
+            if not csv_path:
+                return {"success": False, "error": "CSV path is required"}
+
+            if not csv_path.lower().endswith('.csv'):
+                return {"success": False, "error": "Invalid CSV file path"}
+
+            actual_path = os.path.join(self.csv_dir, csv_path)
+            if not os.path.exists(actual_path):
+                return {"success": False, "error": "CSV file not found"}
+            if not os.path.isfile(actual_path):
+                return {"success": False, "error": "Invalid CSV file path"}
+
+            # Resolve the target folder
+            target_folder_clean = (target_folder or "").replace('\\', '/').strip('/')
+            if target_folder_clean:
+                target_dir = os.path.join(self.csv_dir, target_folder_clean)
+                if not os.path.isdir(target_dir):
+                    return {"success": False, "error": "Target folder does not exist"}
+            else:
+                target_dir = self.csv_dir
+
+            file_name = os.path.basename(actual_path)
+            new_path = os.path.join(target_dir, file_name)
+
+            # Prevent moving into the same directory
+            if os.path.normpath(os.path.dirname(actual_path)) == os.path.normpath(target_dir):
+                return {"success": False, "error": "文件已在目标文件夹中"}
+
+            if os.path.exists(new_path):
+                return {"success": False, "error": "目标文件夹已存在同名文件"}
+
+            # Ensure target directory exists (no-op for existing dirs)
+            os.makedirs(target_dir, exist_ok=True)
+            shutil.move(actual_path, new_path)
+
+            new_rel_path = os.path.join(target_folder_clean, file_name) if target_folder_clean else file_name
+            return {"success": True, "path": new_rel_path}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
     
     def rename_folder(self, folder_path, new_name):
         try:

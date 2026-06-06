@@ -121,6 +121,15 @@ async def rename_csv_file(request):
     )
     return web.json_response(result)
 
+@routes.post("/hezl_prompt/move_csv_file")
+async def move_csv_file(request):
+    data = await request.json()
+    result = data_manager.move_csv_file(
+        csv_path=data.get("path", ""),
+        target_folder=data.get("target_folder", "")
+    )
+    return web.json_response(result)
+
 @routes.post("/hezl_prompt/delete_prompt")
 async def delete_prompt(request):
     data = await request.json()

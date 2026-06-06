@@ -7,4 +7,5 @@
 __pycache__/
 
 # 数据文件
-csv/Hezl/
+csv/01_Hezl/
+csv/09_模型提示词/

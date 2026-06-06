@@ -689,13 +689,13 @@ const HEZL_PROMPT_CSS = `
 }
 
 .hezl-prompt-item-wrapper.selected {
-    border-color: #27ae60;
-    background: #2d3a2d;
-    box-shadow: 0 0 0 1px rgba(39, 174, 96, 0.3);
+    border-color: rgb(39, 174, 96);
+    background: rgb(39, 174, 96);
+    box-shadow: 0 0 0 1px rgba(39, 174, 96, 0.6);
 }
 
 .hezl-prompt-item-wrapper.selected .hezl-prompt-title {
-    background: #27ae60;
+    background: rgb(39, 174, 96);
     color: #fff;
 }
 
@@ -868,7 +868,7 @@ class HezlPromptWidget {
         // Multi-bar data structure: each bar has its own prompts, weights, disabled
         this.bars = [
             {
-                name: '',
+                name: '词组栏01',
                 prompts: [],
                 weights: {},
                 disabled: {}
@@ -883,9 +883,13 @@ class HezlPromptWidget {
         this.expandedFolders = new Set();
         this.hoverPreview = null;
         this.contextMenu = null;
-        
+
         this.injectStyles();
         this.createWidget();
+        // Render the default bar(s) so they are visible on first launch
+        this.renderBars();
+        // Sync the node's output slots to match the current bar count (default 1 bar => 2 outputs)
+        this.updateNodeOutputs();
         this.loadFolderStructure();
     }
     
@@ -1094,13 +1098,14 @@ class HezlPromptWidget {
             alert('最多支持10个词组栏');
             return;
         }
+        const newIndex = this.bars.length;
         this.bars.push({
-            name: '',
+            name: `词组栏${String(newIndex + 1).padStart(2, '0')}`,
             prompts: [],
             weights: {},
             disabled: {}
         });
-        this.selectedBarIndex = this.bars.length - 1;
+        this.selectedBarIndex = newIndex;
         this.renderBars();
         this.updateOutput();
         this.updateNodeOutputs();
@@ -1706,6 +1711,11 @@ class HezlPromptWidget {
     }
 
     expandFolderDescendants(folderPath) {
+        // Expand the target folder itself plus all its descendant subfolders
+        if (folderPath) {
+            this.expandedFolders.add(folderPath);
+        }
+
         // Recursively expand all subfolders under the given folder path
         const collectDescendants = (nodes) => {
             if (!nodes) return;
@@ -1743,7 +1753,54 @@ class HezlPromptWidget {
         }
         this.renderFolderTree();
     }
-    
+
+    collapseFolderDescendants(folderPath) {
+        // Collapse the target folder itself and all of its descendant subfolders
+        if (!folderPath) return;
+
+        // Collect the target folder and all its descendant folder paths
+        const pathsToCollapse = [folderPath];
+        const collectDescendants = (nodes) => {
+            if (!nodes) return;
+            for (const node of nodes) {
+                if (node.type === 'folder') {
+                    if (node.path) {
+                        pathsToCollapse.push(node.path);
+                    }
+                    if (node.children) {
+                        collectDescendants(node.children);
+                    }
+                }
+            }
+        };
+
+        // Find the target folder node and collect its descendants
+        const findAndCollect = (nodes, targetPath) => {
+            if (!nodes) return false;
+            for (const node of nodes) {
+                if (node.path === targetPath) {
+                    if (node.children) {
+                        collectDescendants(node.children);
+                    }
+                    return true;
+                }
+                if (node.children && findAndCollect(node.children, targetPath)) {
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        if (this.folderStructure && this.folderStructure.default && this.folderStructure.default.children) {
+            findAndCollect(this.folderStructure.default.children, folderPath);
+        }
+
+        for (const p of pathsToCollapse) {
+            this.expandedFolders.delete(p);
+        }
+        this.renderFolderTree();
+    }
+
     renderFolderTree() {
         if (!this.folderStructure) return;
         
@@ -1840,6 +1897,7 @@ class HezlPromptWidget {
         if (type === 'folder') {
             menuHtml = `
                 <div class="hezl-context-menu-item" data-action="expand-children">展开子文件夹</div>
+                <div class="hezl-context-menu-item" data-action="collapse-children">收起子文件夹</div>
                 <div class="hezl-context-menu-item" data-action="add-folder">添加子文件夹</div>
                 <div class="hezl-context-menu-item" data-action="add-csv">新建CSV文件</div>
                 <div class="hezl-context-menu-item" data-action="rename-folder">重命名</div>
@@ -1848,6 +1906,7 @@ class HezlPromptWidget {
         } else if (type === 'csv') {
             menuHtml = `
                 <div class="hezl-context-menu-item" data-action="add-prompt">添加词组</div>
+                <div class="hezl-context-menu-item" data-action="move-csv">移动到其他文件夹</div>
                 <div class="hezl-context-menu-item" data-action="rename-csv">重命名</div>
                 <div class="hezl-context-menu-item" data-action="delete-csv">删除</div>
             `;
@@ -1885,6 +1944,8 @@ class HezlPromptWidget {
                 const action = item.dataset.action;
                 if (action === 'expand-children') {
                     this.expandFolderDescendants(path);
+                } else if (action === 'collapse-children') {
+                    this.collapseFolderDescendants(path);
                 } else if (action === 'add-folder') {
                     this.showAddFolderModal(path);
                 } else if (action === 'add-csv') {
@@ -1903,6 +1964,8 @@ class HezlPromptWidget {
                     this.showAddPromptAtPosition(extra.source || path, extra.index, 'below');
                 } else if (action === 'rename-csv') {
                     this.showRenameCsvModal(path);
+                } else if (action === 'move-csv') {
+                    this.showMoveCsvModal(path);
                 } else if (action === 'delete-csv') {
                     if (confirm('确定删除此CSV文件吗？')) {
                         this.deleteCsvFile(path);
@@ -1983,6 +2046,7 @@ class HezlPromptWidget {
     
     renderPromptList() {
         const isCsv = this.currentFolderType === 'csv';
+        const isFolder = this.currentFolderType === 'folder';
 
         // Handle toolbar visibility
         if (this.toolbar) {
@@ -1999,7 +2063,7 @@ class HezlPromptWidget {
             }
         }
 
-        if (!isCsv) {
+        if (!isCsv && !isFolder) {
             this.promptList.innerHTML = '<div class="hezl-empty-state">请选择左侧分类查看词组</div>';
             return;
         }
@@ -2015,11 +2079,12 @@ class HezlPromptWidget {
             const count = this.getPromptCountInBars(prompt.title);
             const escapedTitle = this.escapeHtml(prompt.title);
             const escapedSource = this.escapeHtml(prompt.source || this.currentFolder);
+            const isSelected = count > 0 ? 'selected' : '';
             const countBadge = count > 0
                 ? `<span class="hezl-prompt-count-badge" data-prompt-title="${escapedTitle}" data-prompt-source="${escapedSource}" data-count="${count}">${count}</span>`
                 : '';
             html += `
-                <div class="hezl-prompt-item-wrapper"
+                <div class="hezl-prompt-item-wrapper ${isSelected}"
                      data-title="${escapedTitle}"
                      data-folder="${this.currentFolder}"
                      data-source="${escapedSource}"
@@ -3065,13 +3130,17 @@ class HezlPromptWidget {
     }
     
     showAddFolderModal(parentPath = null) {
-        const parent = ''; // 强制在根目录下创建
-        
+        // Use the given parent path; null/empty => create at the csv root directory
+        const parent = (parentPath === null || parentPath === '') ? '' : parentPath;
+
+        // Pre-select the target folder in the modal title
+        const targetDisplay = parent ? parent : '根目录';
+
         const modal = document.createElement('div');
         modal.className = 'hezl-modal';
         modal.innerHTML = `
             <div class="hezl-modal-content">
-                <div class="hezl-modal-header">添加文件夹</div>
+                <div class="hezl-modal-header">在「${this.escapeHtml(targetDisplay)}」下创建子文件夹</div>
                 <div class="hezl-form-group">
                     <label class="hezl-form-label">文件夹名称</label>
                     <input type="text" class="hezl-form-input" id="hezl-folder-name" placeholder="输入文件夹名称">
@@ -3091,12 +3160,12 @@ class HezlPromptWidget {
         
         modal.querySelector('#hezl-modal-save').addEventListener('click', async () => {
             const name = modal.querySelector('#hezl-folder-name').value.trim();
-            
+
             if (!name) {
                 alert('请输入文件夹名称');
                 return;
             }
-            
+
             try {
                 const result = await this.safeFetchJson('/hezl_prompt/add_folder', {
                     method: 'POST',
@@ -3106,10 +3175,14 @@ class HezlPromptWidget {
                         name: name
                     })
                 });
-                
+
                 if (result.success) {
                     modal.remove();
-                    this.loadFolderStructure();
+                    // Expand the parent folder (when applicable) so the new child is visible
+                    if (parent) {
+                        this.expandedFolders.add(parent);
+                    }
+                    await this.loadFolderStructure();
                 } else {
                     alert('创建失败: ' + result.error);
                 }
@@ -3259,7 +3332,141 @@ class HezlPromptWidget {
             }
         });
     }
-    
+
+    showMoveCsvModal(csvPath = null) {
+        const path = csvPath || this.currentFolder;
+        if (!path) {
+            alert('请先选择CSV文件');
+            return;
+        }
+        if (!path.toLowerCase().endsWith('.csv')) {
+            alert('请选择CSV文件');
+            return;
+        }
+
+        // Collect all folder paths (except the source folder itself and its descendants)
+        const sepRegex = /[/\\]/;
+        const sourceDir = path.split(sepRegex).slice(0, -1).join('/');
+        const fileName = path.split(sepRegex).pop();
+
+        const folderOptions = [];
+        folderOptions.push({ value: '', label: '根目录' });
+
+        const collectFolders = (nodes) => {
+            if (!nodes) return;
+            for (const node of nodes) {
+                if (node.type === 'folder' && node.path) {
+                    // Don't allow moving into the same folder or any descendant
+                    if (node.path === sourceDir || sourceDir.startsWith(node.path + '/') || sourceDir.startsWith(node.path + '\\')) {
+                        // Skip, but still recurse? Skip descendants entirely to be safe
+                        continue;
+                    }
+                    folderOptions.push({ value: node.path, label: node.path });
+                    if (node.children) {
+                        collectFolders(node.children);
+                    }
+                }
+            }
+        };
+
+        if (this.folderStructure && this.folderStructure.default) {
+            collectFolders(this.folderStructure.default.children);
+        }
+
+        if (folderOptions.length === 1) {
+            alert('没有可用的目标文件夹');
+            return;
+        }
+
+        const modal = document.createElement('div');
+        modal.className = 'hezl-modal';
+        modal.innerHTML = `
+            <div class="hezl-modal-content">
+                <div class="hezl-modal-header">移动CSV到其他文件夹</div>
+                <div class="hezl-form-group">
+                    <label class="hezl-form-label">当前文件：${this.escapeHtml(fileName)}</label>
+                </div>
+                <div class="hezl-form-group">
+                    <label class="hezl-form-label">目标文件夹</label>
+                    <select class="hezl-form-input" id="hezl-move-target-folder">
+                        ${folderOptions.map(o => `<option value="${this.escapeHtml(o.value)}">${this.escapeHtml(o.label)}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="hezl-modal-actions">
+                    <button class="hezl-btn" id="hezl-modal-cancel">取消</button>
+                    <button class="hezl-btn success" id="hezl-modal-save">移动</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        modal.querySelector('#hezl-modal-cancel').addEventListener('click', () => {
+            modal.remove();
+        });
+
+        modal.querySelector('#hezl-modal-save').addEventListener('click', async () => {
+            const targetFolder = modal.querySelector('#hezl-move-target-folder').value;
+
+            if (!confirm(`确定要将「${fileName}」移动到「${targetFolder || '根目录'}」吗？`)) {
+                return;
+            }
+
+            try {
+                const result = await this.safeFetchJson('/hezl_prompt/move_csv_file', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        path: path,
+                        target_folder: targetFolder
+                    })
+                });
+
+                if (result.success) {
+                    const newPath = result.path || path;
+                    // Update any selected bar entries that reference the old csv path
+                    for (const bar of this.bars) {
+                        for (const p of bar.prompts) {
+                            if (p.folder === path) {
+                                p.folder = newPath;
+                            }
+                        }
+                    }
+                    // Update loaded prompts in current folder view
+                    this.promptsData.forEach(p => {
+                        const source = p.source || this.currentFolder;
+                        if (source === path) {
+                            p.source = newPath;
+                        }
+                    });
+                    if (this.currentFolder === path) {
+                        this.currentFolder = newPath;
+                        this.currentFolderType = 'csv';
+                    }
+                    modal.remove();
+                    // Expand the target folder so the moved file is visible
+                    if (targetFolder) {
+                        this.expandedFolders.add(targetFolder);
+                    }
+                    await this.loadFolderStructure();
+                    if (this.currentFolder === newPath) {
+                        await this.selectFolder(newPath, 'csv');
+                    }
+                } else {
+                    alert('移动失败: ' + result.error);
+                }
+            } catch (error) {
+                alert('移动失败: ' + error.message);
+            }
+        });
+
+        modal.addEventListener('mousedown', (e) => {
+            if (!e.target.closest('.hezl-modal-content')) {
+                modal.remove();
+            }
+        });
+    }
+
     showRenameCsvModal(csvPath = null) {
         const path = csvPath || this.currentFolder;
         if (!path) {
@@ -3499,15 +3706,18 @@ app.registerExtension({
                             } else if (data.prompts) {
                                 // Legacy format - convert to single bar
                                 hezlWidget.bars = [{
-                                    name: '',
+                                    name: '词组栏01',
                                     prompts: data.prompts || [],
                                     weights: data.weights || {},
                                     disabled: data.disabled || {}
                                 }];
                             }
                             // Ensure all prompts have unique ids
-                            for (const bar of hezlWidget.bars) {
-                                if (!bar.name) bar.name = '';
+                            for (let bi = 0; bi < hezlWidget.bars.length; bi++) {
+                                const bar = hezlWidget.bars[bi];
+                                if (!bar.name) {
+                                    bar.name = `词组栏${String(bi + 1).padStart(2, '0')}`;
+                                }
                                 for (const p of bar.prompts) {
                                     if (!p.id) {
                                         p.id = hezlWidget._nextPromptId++;
