@@ -36,7 +36,7 @@
   
 
 ## 使用  
-![image](README_Img/Node_260317.png)  
+![image](README_Img/Node_V2.0.png)  
 ### 功能
 1. 以本地文件夹形式分类，读取csv  
 2. 可勾选多个词组，并可在【预览模块】里移动顺序和权重调节  
