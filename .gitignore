@@ -1,6 +1,7 @@
 # 开发环境
 .vscode/
 .trae/
+.claude/
 
 # Python 缓存
 __pycache__/

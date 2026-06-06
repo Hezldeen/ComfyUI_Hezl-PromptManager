@@ -24,7 +24,6 @@ const HEZL_PROMPT_CSS = `
 .hezl-prompt-bottom {
     flex: 0 0 auto;
     min-height: 80px;
-    max-height: 50%;
     padding: 8px;
     overflow-y: auto;
     background: #252525;
@@ -43,9 +42,17 @@ const HEZL_PROMPT_CSS = `
     flex-direction: column;
 }
 
-.hezl-prompt-list {
+.hezl-prompt-right {
     flex: 1 1 auto;
     min-width: 150px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.hezl-prompt-list {
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
     padding: 6px;
     background: #222;
@@ -573,10 +580,7 @@ const HEZL_PROMPT_CSS = `
 .hezl-sidebar-actions .hezl-btn {
     padding: 2px 5px;
     font-size: 10px;
-}
-
-.hezl-sidebar-actions {
-    display: flex;
+    background: rgb(26, 26, 26);
 }
 
 #hezl-add-prompt,
@@ -633,6 +637,16 @@ const HEZL_PROMPT_CSS = `
     display: flex;
     gap: 4px;
     margin-bottom: 6px;
+}
+
+.hezl-prompt-toolbar {
+    display: flex;
+    gap: 4px;
+    padding: 4px 6px;
+    background: #1a1a1a;
+    border-bottom: 1px solid #333;
+    flex-wrap: wrap;
+    flex-shrink: 0;
 }
 
 .hezl-context-menu {
@@ -752,21 +766,20 @@ const HEZL_PROMPT_CSS = `
 
 /* Bar rename button */
 .hezl-bar-rename-btn {
-    background: none;
+    background: #3498db;
+    color: #fff;
     border: none;
-    color: #666;
     cursor: pointer;
-    font-size: 11px;
-    padding: 1px 4px;
+    font-size: 10px;
+    padding: 2px 6px;
     border-radius: 3px;
-    transition: all 0.15s;
+    transition: background 0.2s;
     line-height: 1;
     flex-shrink: 0;
 }
 
 .hezl-bar-rename-btn:hover {
-    color: #3498db;
-    background: rgba(52, 152, 219, 0.15);
+    background: #2980b9;
 }
 
 .hezl-bar-actions {
@@ -895,17 +908,20 @@ class HezlPromptWidget {
                     <div class="hezl-section-title">
                         <span>分类目录</span>
                         <div class="hezl-sidebar-actions">
-                            <button class="hezl-btn small" id="hezl-expand-all" title="展开全部">展开</button>
-                            <button class="hezl-btn small" id="hezl-collapse-all" title="收起全部">收起</button>
-                            <button class="hezl-btn small" id="hezl-add-root-folder" title="在根目录csv文件夹下创建文件夹">+文件夹</button>
-                            <button class="hezl-btn small" id="hezl-refresh" title="刷新">↻</button>
+                            <button class="hezl-btn small" id="hezl-expand-all" title="展开全部">⏬️</button>
+                            <button class="hezl-btn small" id="hezl-collapse-all" title="收起全部">⏭️</button>
+                            <button class="hezl-btn small" id="hezl-add-root-folder" title="在根目录csv文件夹下创建文件夹">+📁</button>
+                            <button class="hezl-btn small" id="hezl-refresh" title="刷新">🔄</button>
                         </div>
                     </div>
                     <div class="hezl-folder-tree" id="hezl-folder-tree"></div>
                 </div>
                 <div class="hezl-splitter-vertical" id="hezl-splitter-vertical"></div>
-                <div class="hezl-prompt-list" id="hezl-prompt-list">
-                    <div class="hezl-empty-state">请选择左侧分类查看词组</div>
+                <div class="hezl-prompt-right" id="hezl-prompt-right">
+                    <div class="hezl-prompt-toolbar" id="hezl-prompt-toolbar" style="display:none;"></div>
+                    <div class="hezl-prompt-list" id="hezl-prompt-list">
+                        <div class="hezl-empty-state">请选择左侧分类查看词组</div>
+                    </div>
                 </div>
             </div>
             <div class="hezl-splitter-horizontal" id="hezl-splitter-horizontal"></div>
@@ -917,6 +933,7 @@ class HezlPromptWidget {
         
         this.folderTree = this.container.querySelector('#hezl-folder-tree');
         this.promptList = this.container.querySelector('#hezl-prompt-list');
+        this.toolbar = this.container.querySelector('#hezl-prompt-toolbar');
         this.barsContainer = this.container.querySelector('#hezl-bars-container');
         this.sidebar = this.container.querySelector('#hezl-prompt-sidebar');
         this.topPanel = this.container.querySelector('#hezl-prompt-top');
@@ -1190,7 +1207,7 @@ class HezlPromptWidget {
                     <div class="hezl-bar-header">
                         <div class="hezl-bar-actions-left">
                             <span class="hezl-bar-label" data-bar="${barIndex}" title="双击重命名">${label}</span>
-                            <button class="hezl-bar-rename-btn" data-bar="${barIndex}" title="重命名词组栏">✎</button>
+                            <button class="hezl-btn small hezl-bar-rename-btn" data-bar="${barIndex}" title="重命名词组栏">重命名</button>
                             <button class="hezl-btn small danger hezl-bar-remove-all" data-bar="${barIndex}">移除全部</button>
                             <button class="hezl-btn small warning hezl-bar-disable-all" data-bar="${barIndex}">全部禁用</button>
                             <button class="hezl-btn small success hezl-bar-enable-all" data-bar="${barIndex}">全部启用</button>
@@ -1687,6 +1704,45 @@ class HezlPromptWidget {
             traverse(structure.default);
         }
     }
+
+    expandFolderDescendants(folderPath) {
+        // Recursively expand all subfolders under the given folder path
+        const collectDescendants = (nodes) => {
+            if (!nodes) return;
+            for (const node of nodes) {
+                if (node.type === 'folder') {
+                    if (node.path) {
+                        this.expandedFolders.add(node.path);
+                    }
+                    if (node.children) {
+                        collectDescendants(node.children);
+                    }
+                }
+            }
+        };
+
+        // Find the target folder node and collect its descendants
+        const findAndCollect = (nodes, targetPath) => {
+            if (!nodes) return false;
+            for (const node of nodes) {
+                if (node.path === targetPath) {
+                    if (node.children) {
+                        collectDescendants(node.children);
+                    }
+                    return true;
+                }
+                if (node.children && findAndCollect(node.children, targetPath)) {
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        if (this.folderStructure && this.folderStructure.default && this.folderStructure.default.children) {
+            findAndCollect(this.folderStructure.default.children, folderPath);
+        }
+        this.renderFolderTree();
+    }
     
     renderFolderTree() {
         if (!this.folderStructure) return;
@@ -1752,23 +1808,25 @@ class HezlPromptWidget {
         
         this.folderTree.querySelectorAll('.hezl-folder-item').forEach(item => {
             item.addEventListener('click', (e) => {
+                // Don't trigger folder selection when clicking count badge
                 if (e.target.classList.contains('hezl-folder-count')) {
                     e.stopPropagation();
                     this.clearFolderSelection(item.dataset.path);
+                    return;
+                }
+                if (this.currentFolder === item.dataset.path) {
+                    this.deselectFolder();
                 } else {
-                    if (this.currentFolder === item.dataset.path) {
-                        this.deselectFolder();
-                    } else {
-                        this.selectFolder(item.dataset.path, item.dataset.type);
-                    }
+                    this.selectFolder(item.dataset.path, item.dataset.type);
                 }
             });
-            
+
             item.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
                 this.showContextMenu(e, item.dataset.path, item.dataset.type);
             });
         });
+
     }
     
     showContextMenu(e, path, type, extra = {}) {
@@ -1781,6 +1839,7 @@ class HezlPromptWidget {
 
         if (type === 'folder') {
             menuHtml = `
+                <div class="hezl-context-menu-item" data-action="expand-children">展开子文件夹</div>
                 <div class="hezl-context-menu-item" data-action="add-folder">添加子文件夹</div>
                 <div class="hezl-context-menu-item" data-action="add-csv">新建CSV文件</div>
                 <div class="hezl-context-menu-item" data-action="rename-folder">重命名</div>
@@ -1789,7 +1848,6 @@ class HezlPromptWidget {
         } else if (type === 'csv') {
             menuHtml = `
                 <div class="hezl-context-menu-item" data-action="add-prompt">添加词组</div>
-                <div class="hezl-context-menu-item" data-action="batch-move">批量移动词组到词组栏</div>
                 <div class="hezl-context-menu-item" data-action="rename-csv">重命名</div>
                 <div class="hezl-context-menu-item" data-action="delete-csv">删除</div>
             `;
@@ -1811,6 +1869,7 @@ class HezlPromptWidget {
             `;
         } else if (type === 'blank') {
             menuHtml = `
+                <div class="hezl-context-menu-item" data-action="add-root-folder">根目录新建文件夹</div>
                 <div class="hezl-context-menu-item" data-action="refresh">刷新</div>
             `;
         }
@@ -1824,7 +1883,9 @@ class HezlPromptWidget {
         this.contextMenu.querySelectorAll('.hezl-context-menu-item').forEach(item => {
             item.addEventListener('click', () => {
                 const action = item.dataset.action;
-                if (action === 'add-folder') {
+                if (action === 'expand-children') {
+                    this.expandFolderDescendants(path);
+                } else if (action === 'add-folder') {
                     this.showAddFolderModal(path);
                 } else if (action === 'add-csv') {
                     this.showCreateCsvModal(path);
@@ -1850,8 +1911,6 @@ class HezlPromptWidget {
                     this.showEditPromptModal(extra.title, extra.source || path);
                 } else if (action === 'delete-prompt') {
                     this.deletePrompt(extra.title, extra.source || path);
-                } else if (action === 'batch-move') {
-                    this.showBatchMoveModal(path);
                 } else if (action === 'locate-folder') {
                     this.locatePromptFolder(extra.folder);
                 } else if (action === 'enable-prompt') {
@@ -1864,6 +1923,8 @@ class HezlPromptWidget {
                     this.updateOutput();
                 } else if (action === 'delete-preview-prompt') {
                     this.removePromptFromBarByIndex(extra.barIndex, extra.promptIndex);
+                } else if (action === 'add-root-folder') {
+                    this.showAddFolderModal('');
                 } else if (action === 'refresh') {
                     this.loadFolderStructure();
                 }
@@ -1921,6 +1982,28 @@ class HezlPromptWidget {
     }
     
     renderPromptList() {
+        const isCsv = this.currentFolderType === 'csv';
+
+        // Handle toolbar visibility
+        if (this.toolbar) {
+            if (isCsv) {
+                this.toolbar.style.display = 'flex';
+                this.toolbar.innerHTML = `
+                    <button class="hezl-btn small" id="hezl-prompt-add" title="新建词组">🏷️新建词组</button>
+                    <button class="hezl-btn small" id="hezl-prompt-batch-move" title="批量移动词组到其他CSV文件">🚅批量移动词组</button>
+                    <button class="hezl-btn small danger" id="hezl-prompt-batch-delete" title="批量删除词组">🗑️批量删除词组</button>
+                `;
+                this.bindPromptToolbarEvents();
+            } else {
+                this.toolbar.style.display = 'none';
+            }
+        }
+
+        if (!isCsv) {
+            this.promptList.innerHTML = '<div class="hezl-empty-state">请选择左侧分类查看词组</div>';
+            return;
+        }
+
         if (this.promptsData.length === 0) {
             this.promptList.innerHTML = '<div class="hezl-empty-state">暂无词组</div>';
             return;
@@ -1930,18 +2013,22 @@ class HezlPromptWidget {
         for (let index = 0; index < this.promptsData.length; index++) {
             const prompt = this.promptsData[index];
             const count = this.getPromptCountInBars(prompt.title);
-            const countBadge = count > 0 ? `<span class="hezl-prompt-count-badge">${count}</span>` : '';
+            const escapedTitle = this.escapeHtml(prompt.title);
+            const escapedSource = this.escapeHtml(prompt.source || this.currentFolder);
+            const countBadge = count > 0
+                ? `<span class="hezl-prompt-count-badge" data-prompt-title="${escapedTitle}" data-prompt-source="${escapedSource}" data-count="${count}">${count}</span>`
+                : '';
             html += `
                 <div class="hezl-prompt-item-wrapper"
-                     data-title="${this.escapeHtml(prompt.title)}"
+                     data-title="${escapedTitle}"
                      data-folder="${this.currentFolder}"
-                     data-source="${this.escapeHtml(prompt.source || this.currentFolder)}"
+                     data-source="${escapedSource}"
                      data-index="${index}">
                     <div class="hezl-prompt-item-content">
-                        <div class="hezl-prompt-title">${this.escapeHtml(prompt.title)}</div>
+                        <div class="hezl-prompt-title">${escapedTitle}</div>
                         ${countBadge}
                     </div>
-                    <button class="hezl-prompt-edit-btn" data-title="${this.escapeHtml(prompt.title)}">编辑</button>
+                    <button class="hezl-prompt-edit-btn" data-title="${escapedTitle}">编辑</button>
                 </div>
             `;
         }
@@ -1957,6 +2044,42 @@ class HezlPromptWidget {
                 this.togglePromptSelection(wrapper.dataset.title);
             });
 
+            // Count badge hover/click behavior
+            const countBadge = wrapper.querySelector('.hezl-prompt-count-badge');
+            if (countBadge) {
+                countBadge.addEventListener('mouseenter', () => {
+                    countBadge.textContent = '-';
+                    countBadge.style.background = '#555';
+                });
+                countBadge.addEventListener('mouseleave', () => {
+                    countBadge.textContent = countBadge.dataset.count;
+                    countBadge.style.background = '';
+                });
+                countBadge.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const promptTitle = countBadge.dataset.promptTitle;
+                    const promptSource = countBadge.dataset.promptSource;
+                    // Remove one instance from bars: prefer selectedBarIndex, then fallback to first match
+                    const bar = this.bars[this.selectedBarIndex];
+                    let foundIndex = -1;
+                    if (bar) {
+                        foundIndex = bar.prompts.findIndex(p => p.title === promptTitle && p.folder === promptSource);
+                    }
+                    if (foundIndex === -1) {
+                        // Search all bars
+                        for (let bi = 0; bi < this.bars.length; bi++) {
+                            foundIndex = this.bars[bi].prompts.findIndex(p => p.title === promptTitle && p.folder === promptSource);
+                            if (foundIndex !== -1) {
+                                this.removePromptFromBarByIndex(bi, foundIndex);
+                                return;
+                            }
+                        }
+                    } else {
+                        this.removePromptFromBarByIndex(this.selectedBarIndex, foundIndex);
+                    }
+                });
+            }
+
             // Feature 1: Right-click on prompt with index info
             wrapper.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
@@ -1966,7 +2089,7 @@ class HezlPromptWidget {
                     index: parseInt(wrapper.dataset.index)
                 });
             });
-            
+
             content.addEventListener('mouseenter', (e) => {
                 const promptTitle = wrapper.dataset.title;
                 const promptSource = wrapper.dataset.source;
@@ -1978,13 +2101,13 @@ class HezlPromptWidget {
                     this.showHoverPreview(e, prompt);
                 }
             });
-            
+
             content.addEventListener('mouseleave', () => {
                 this.hideHoverPreview();
             });
 
             wrapper.draggable = canReorder;
-            
+
             wrapper.addEventListener('dragstart', (e) => {
                 if (!canReorder) {
                     e.preventDefault();
@@ -1994,30 +2117,30 @@ class HezlPromptWidget {
                 e.dataTransfer.effectAllowed = 'move';
                 e.dataTransfer.setData('text/plain', wrapper.dataset.index);
             });
-            
+
             wrapper.addEventListener('dragend', () => {
                 wrapper.classList.remove('dragging');
                 this.promptList.querySelectorAll('.hezl-prompt-item-wrapper').forEach(i => {
                     i.classList.remove('drag-over', 'insert-before', 'insert-after');
                 });
             });
-            
+
             wrapper.addEventListener('dragover', (e) => {
                 if (!canReorder) return;
                 e.preventDefault();
                 e.dataTransfer.dropEffect = 'move';
-                
+
                 if (wrapper.classList.contains('dragging')) return;
-                
+
                 this.promptList.querySelectorAll('.hezl-prompt-item-wrapper').forEach(i => {
                     if (i !== wrapper) {
                         i.classList.remove('insert-before', 'insert-after');
                     }
                 });
-                
+
                 const rect = wrapper.getBoundingClientRect();
                 const midX = rect.left + rect.width / 2;
-                
+
                 if (e.clientX < midX) {
                     wrapper.classList.remove('insert-after');
                     wrapper.classList.add('insert-before');
@@ -2026,7 +2149,7 @@ class HezlPromptWidget {
                     wrapper.classList.add('insert-after');
                 }
             });
-            
+
             wrapper.addEventListener('dragenter', (e) => {
                 if (!canReorder) return;
                 e.preventDefault();
@@ -2034,7 +2157,7 @@ class HezlPromptWidget {
                     wrapper.classList.add('drag-over');
                 }
             });
-            
+
             wrapper.addEventListener('dragleave', (e) => {
                 if (!canReorder) return;
                 const rect = wrapper.getBoundingClientRect();
@@ -2043,27 +2166,27 @@ class HezlPromptWidget {
                     wrapper.classList.remove('drag-over', 'insert-before', 'insert-after');
                 }
             });
-            
+
             wrapper.addEventListener('drop', (e) => {
                 if (!canReorder) return;
                 e.preventDefault();
                 wrapper.classList.remove('drag-over', 'insert-before', 'insert-after');
                 const dragIndex = parseInt(e.dataTransfer.getData('text/plain'));
                 let dropIndex = parseInt(wrapper.dataset.index);
-                
+
                 const rect = wrapper.getBoundingClientRect();
                 const midX = rect.left + rect.width / 2;
-                
+
                 if (e.clientX >= midX) {
                     dropIndex = dropIndex + 1;
                 }
-                
+
                 if (!isNaN(dragIndex) && !isNaN(dropIndex) && dragIndex !== dropIndex) {
                     this.reorderPromptList(dragIndex, dropIndex);
                 }
             });
         });
-        
+
     }
     
     async showEditPromptModal(promptTitle, promptSource = null) {
@@ -2325,7 +2448,7 @@ class HezlPromptWidget {
         });
     }
 
-    // Feature 1: Batch move CSV phrases to phrase bars
+    // Feature 1: Batch move CSV phrases to other CSV files (not bars)
     showBatchMoveModal(csvPath) {
         if (!csvPath) return;
 
@@ -2340,15 +2463,34 @@ class HezlPromptWidget {
             return;
         }
 
+        // Collect all CSV paths from folder structure, excluding current one
+        const csvPaths = [];
+        const collectCsvs = (node) => {
+            if (node.type === 'csv' && node.path !== csvPath) {
+                csvPaths.push(node.path);
+            }
+            if (node.children) {
+                node.children.forEach(collectCsvs);
+            }
+        };
+        if (this.folderStructure && this.folderStructure.default) {
+            this.folderStructure.default.children.forEach(collectCsvs);
+        }
+
+        if (csvPaths.length === 0) {
+            alert('没有找到其他CSV文件');
+            return;
+        }
+
         const modal = document.createElement('div');
         modal.className = 'hezl-modal';
         modal.innerHTML = `
             <div class="hezl-modal-content" style="max-width: 500px;">
-                <div class="hezl-modal-header">批量移动词组到词组栏</div>
+                <div class="hezl-modal-header">批量移动词组到其他CSV文件</div>
                 <div class="hezl-form-group">
-                    <label class="hezl-form-label">选择目标词组栏</label>
-                    <select class="hezl-form-input" id="hezl-batch-target-bar">
-                        ${this.bars.map((bar, i) => `<option value="${i}">${this.getBarLabel(i)}</option>`).join('')}
+                    <label class="hezl-form-label">选择目标CSV文件</label>
+                    <select class="hezl-form-input" id="hezl-batch-target-csv">
+                        ${csvPaths.map(p => `<option value="${this.escapeHtml(p)}">${this.escapeHtml(p)}</option>`).join('')}
                     </select>
                 </div>
                 <div class="hezl-form-group">
@@ -2390,8 +2532,8 @@ class HezlPromptWidget {
             modal.remove();
         });
 
-        modal.querySelector('#hezl-modal-move').addEventListener('click', () => {
-            const targetBarIndex = parseInt(modal.querySelector('#hezl-batch-target-bar').value);
+        modal.querySelector('#hezl-modal-move').addEventListener('click', async () => {
+            const targetCsv = modal.querySelector('#hezl-batch-target-csv').value;
             const selectedIndices = [];
             promptCbs.forEach(cb => {
                 if (cb.checked) {
@@ -2404,26 +2546,202 @@ class HezlPromptWidget {
                 return;
             }
 
-            const targetBar = this.bars[targetBarIndex];
-            for (const idx of selectedIndices) {
-                const p = prompts[idx];
-                // Always add (allow duplicates)
-                const id = this._nextPromptId++;
-                targetBar.prompts.push({
-                    id: id,
-                    title: p.title,
-                    content: p.content,
-                    folder: p.source || csvPath
-                });
-                targetBar.weights[id] = 1.0;
-                targetBar.disabled[id] = false;
+            if (!confirm(`确定要将选中的 ${selectedIndices.length} 个词组移动到 ${targetCsv} 吗？`)) {
+                return;
             }
 
+            let errorCount = 0;
+            for (const idx of selectedIndices) {
+                const p = prompts[idx];
+                try {
+                    // Add to target CSV
+                    const addResult = await this.safeFetchJson('/hezl_prompt/add_prompt', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            folder: targetCsv,
+                            title: p.title,
+                            content: p.content
+                        })
+                    });
+                    if (addResult.success) {
+                        // Delete from source CSV
+                        await this.safeFetchJson('/hezl_prompt/delete_prompt', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                folder: csvPath,
+                                title: p.title
+                            })
+                        });
+                        // Remove from all bars
+                        for (const bar of this.bars) {
+                            for (let i = bar.prompts.length - 1; i >= 0; i--) {
+                                if (bar.prompts[i].title === p.title && bar.prompts[i].folder === csvPath) {
+                                    const pid = bar.prompts[i].id;
+                                    bar.prompts.splice(i, 1);
+                                    delete bar.weights[pid];
+                                    delete bar.disabled[pid];
+                                }
+                            }
+                        }
+                    } else {
+                        errorCount++;
+                    }
+                } catch (e) {
+                    errorCount++;
+                }
+            }
+
+            modal.remove();
+            if (errorCount > 0) {
+                alert(`移动完成，但有 ${errorCount} 个词组移动失败（可能目标CSV已存在同名词组）`);
+            }
             this.updateFolderCounts();
+            this.renderBars();
             this.renderPromptList();
+            this.updateOutput();
+            await this.selectFolder(csvPath, 'csv');
+        });
+
+        modal.addEventListener('mousedown', (e) => {
+            if (!e.target.closest('.hezl-modal-content')) {
+                modal.remove();
+            }
+        });
+    }
+
+    bindPromptToolbarEvents() {
+        const addBtn = this.container.querySelector('#hezl-prompt-add');
+        const batchMoveBtn = this.container.querySelector('#hezl-prompt-batch-move');
+        const batchDeleteBtn = this.container.querySelector('#hezl-prompt-batch-delete');
+
+        if (addBtn) {
+            addBtn.addEventListener('click', () => {
+                this.showAddPromptModal(this.currentFolder);
+            });
+        }
+        if (batchMoveBtn) {
+            batchMoveBtn.addEventListener('click', () => {
+                this.showBatchMoveModal(this.currentFolder);
+            });
+        }
+        if (batchDeleteBtn) {
+            batchDeleteBtn.addEventListener('click', () => {
+                this.showBatchDeleteModal(this.currentFolder);
+            });
+        }
+    }
+
+    showBatchDeleteModal(csvPath) {
+        if (!csvPath) return;
+
+        const prompts = this.promptsData.filter(p => {
+            const source = p.source || this.currentFolder;
+            return source === csvPath;
+        });
+
+        if (prompts.length === 0) {
+            alert('当前CSV文件中没有词组');
+            return;
+        }
+
+        const modal = document.createElement('div');
+        modal.className = 'hezl-modal';
+        modal.innerHTML = `
+            <div class="hezl-modal-content" style="max-width: 500px;">
+                <div class="hezl-modal-header">批量删除词组</div>
+                <div class="hezl-form-group">
+                    <label class="hezl-form-label">选择要删除的词组</label>
+                    <div class="hezl-batch-list" id="hezl-batch-delete-list" style="max-height: 300px; overflow-y: auto; border: 1px solid #444; border-radius: 4px; padding: 8px;">
+                        <label style="display: flex; align-items: center; margin-bottom: 6px; cursor: pointer; color: #ccc;">
+                            <input type="checkbox" id="hezl-batch-delete-select-all" style="margin-right: 8px;"> 全选
+                        </label>
+                        ${prompts.map((p, i) => `
+                            <label style="display: flex; align-items: center; margin-bottom: 4px; cursor: pointer; color: #ddd; font-size: 13px;">
+                                <input type="checkbox" class="hezl-batch-delete-cb" data-index="${i}" style="margin-right: 8px;">
+                                ${this.escapeHtml(p.title)}
+                            </label>
+                        `).join('')}
+                    </div>
+                </div>
+                <div class="hezl-modal-actions">
+                    <button class="hezl-btn" id="hezl-modal-cancel">取消</button>
+                    <button class="hezl-btn danger" id="hezl-modal-delete">删除选中</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        const selectAllCb = modal.querySelector('#hezl-batch-delete-select-all');
+        const promptCbs = modal.querySelectorAll('.hezl-batch-delete-cb');
+        selectAllCb.addEventListener('change', () => {
+            promptCbs.forEach(cb => { cb.checked = selectAllCb.checked; });
+        });
+        promptCbs.forEach(cb => {
+            cb.addEventListener('change', () => {
+                selectAllCb.checked = Array.from(promptCbs).every(c => c.checked);
+            });
+        });
+
+        modal.querySelector('#hezl-modal-cancel').addEventListener('click', () => {
+            modal.remove();
+        });
+
+        modal.querySelector('#hezl-modal-delete').addEventListener('click', async () => {
+            const selectedIndices = [];
+            promptCbs.forEach(cb => {
+                if (cb.checked) {
+                    selectedIndices.push(parseInt(cb.dataset.index));
+                }
+            });
+
+            if (selectedIndices.length === 0) {
+                alert('请至少选择一个词组');
+                return;
+            }
+
+            if (!confirm(`确定要删除选中的 ${selectedIndices.length} 个词组吗？此操作不可撤销。`)) {
+                return;
+            }
+
+            let errorCount = 0;
+            for (const idx of selectedIndices) {
+                const p = prompts[idx];
+                try {
+                    await this.safeFetchJson('/hezl_prompt/delete_prompt', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            folder: csvPath,
+                            title: p.title
+                        })
+                    });
+                    // Remove from all bars
+                    for (const bar of this.bars) {
+                        for (let i = bar.prompts.length - 1; i >= 0; i--) {
+                            if (bar.prompts[i].title === p.title && bar.prompts[i].folder === csvPath) {
+                                const pid = bar.prompts[i].id;
+                                bar.prompts.splice(i, 1);
+                                delete bar.weights[pid];
+                                delete bar.disabled[pid];
+                            }
+                        }
+                    }
+                } catch (e) {
+                    errorCount++;
+                }
+            }
+
+            modal.remove();
+            if (errorCount > 0) {
+                alert(`删除完成，但有 ${errorCount} 个词组删除失败`);
+            }
+            this.updateFolderCounts();
             this.renderBars();
             this.updateOutput();
-            modal.remove();
+            await this.selectFolder(csvPath, 'csv');
         });
 
         modal.addEventListener('mousedown', (e) => {
