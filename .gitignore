@@ -2,6 +2,7 @@
 .vscode/
 .trae/
 .claude/
+.zcode/
 
 # Python 缓存
 __pycache__/

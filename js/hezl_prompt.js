@@ -3902,7 +3902,12 @@ app.registerExtension({
                                     bar_separator: ', '
                                 }];
                             }
-                            // Ensure all prompts have unique ids
+                            // Ensure every prompt has a globally-unique id.
+                            // We reassign fresh ids on load (instead of trusting saved ids)
+                            // because legacy/corrupted data may contain duplicate ids within
+                            // the same bar, which causes disabling one prompt to also toggle
+                            // others sharing that id (weights/disabled are keyed by id).
+                            let nextId = 1;
                             for (let bi = 0; bi < hezlWidget.bars.length; bi++) {
                                 const bar = hezlWidget.bars[bi];
                                 if (!bar.name) {
@@ -3914,22 +3919,27 @@ app.registerExtension({
                                 if (bar.bar_separator === undefined) {
                                     bar.bar_separator = ', ';
                                 }
-                                for (const p of bar.prompts) {
-                                    if (!p.id) {
-                                        p.id = hezlWidget._nextPromptId++;
-                                    }
-                                }
-                                // Convert title-based weights/disabled keys to id-based
+                                // Reassign a unique id to each prompt and remap its
+                                // weight/disabled state (looking up by old id, then title).
                                 const newWeights = {};
                                 const newDisabled = {};
                                 for (const p of bar.prompts) {
-                                    const pid = p.id;
-                                    newWeights[pid] = bar.weights[pid] !== undefined ? bar.weights[pid] : (bar.weights[p.title] !== undefined ? bar.weights[p.title] : 1.0);
-                                    newDisabled[pid] = bar.disabled[pid] !== undefined ? bar.disabled[pid] : (bar.disabled[p.title] !== undefined ? bar.disabled[p.title] : false);
+                                    const oldKey = (p.id !== undefined && p.id !== null) ? p.id : p.title;
+                                    const oldWeight = bar.weights[oldKey] !== undefined ? bar.weights[oldKey]
+                                                    : (bar.weights[p.title] !== undefined ? bar.weights[p.title] : 1.0);
+                                    const oldDisabled = bar.disabled[oldKey] !== undefined ? bar.disabled[oldKey]
+                                                      : (bar.disabled[p.title] !== undefined ? bar.disabled[p.title] : false);
+                                    const newId = nextId++;
+                                    p.id = newId;
+                                    newWeights[newId] = oldWeight;
+                                    newDisabled[newId] = oldDisabled;
                                 }
                                 bar.weights = newWeights;
                                 bar.disabled = newDisabled;
                             }
+                            // Keep the counter past every loaded id so newly added
+                            // prompts never collide with existing ones.
+                            hezlWidget._nextPromptId = nextId;
                             hezlWidget.syncSelectionState();
                             hezlWidget.updateNodeOutputs();
                         } catch (e) {}
