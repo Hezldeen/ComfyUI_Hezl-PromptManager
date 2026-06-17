@@ -1,14 +1,83 @@
 import json
 
-MAX_BARS = 10
-# Default number of bars shown on a freshly created node (1 bar => 2 outputs).
-DEFAULT_BARS = 1
+# Maximum number of dynamic output slots besides the "输出全部" slot.
+# Each item (词组栏 or 文本框) only generates a dedicated output when its
+# "单独输出" (solo) switch is enabled. 20 is a comfortable ceiling.
+MAX_SOLO_ITEMS = 20
+# Total outputs the node advertises statically: 1 (输出全部) + MAX_SOLO_ITEMS.
+# The frontend dynamically trims visible slots to match the actual solo count.
+MAX_OUTPUTS = 1 + MAX_SOLO_ITEMS
 
 
-def _bar_label(index, name=None):
+def _item_label(index, name=None):
+    """Return a human-readable label for an item."""
     if name:
         return name
-    return f"词组栏{str(index + 1).zfill(2)}"
+    return f"条目{str(index + 1).zfill(2)}"
+
+
+def _migrate_to_items(data):
+    """Convert any persisted payload into a normalized ``items`` list.
+
+    Accepted shapes:
+      * {"items": [...]}            -> normalized as-is
+      * {"bars": [...]} (legacy)    -> each bar becomes a type:'bar' item
+      * {"prompts": ...} (legacy)   -> wrapped into a single bar item
+    Every item is guaranteed to have a ``type`` field.
+    """
+    items = []
+    if isinstance(data.get("items"), list):
+        items = data["items"]
+    elif isinstance(data.get("bars"), list):
+        for bar in data["bars"]:
+            if not isinstance(bar, dict):
+                continue
+            item = dict(bar)
+            item["type"] = "bar"
+            items.append(item)
+    elif isinstance(data.get("prompts"), list):
+        items = [{
+            "type": "bar",
+            "name": _item_label(0),
+            "prompts": data.get("prompts", []),
+            "weights": data.get("weights", {}),
+            "disabled": data.get("disabled", {}),
+            "prompt_separator": ", ",
+            "bar_separator": ", ",
+        }]
+    return items
+
+
+def _resolve_item_value(item, name, kwargs):
+    """Return the output string for a single item given incoming connections.
+
+    For a 文本框 (textbox): a connected STRING input wins over the manually
+    typed text (per the user's chosen "连接优先" rule). Otherwise the typed
+    ``text`` field is used.
+    """
+    if item.get("type") == "textbox":
+        connected = kwargs.get(name)
+        if connected not in (None, ""):
+            return str(connected)
+        return item.get("text", "") or ""
+
+    # Default: treat as 词组栏 (bar) for backward compatibility.
+    prompts = item.get("prompts", [])
+    weights = item.get("weights", {})
+    disabled = item.get("disabled", {})
+    separator = item.get("prompt_separator", ", ")
+    parts = []
+    for p in prompts:
+        content = p.get("content", "")
+        pid = p.get("id", p.get("title", ""))  # key by id, fallback to title
+        if disabled.get(str(pid), False):
+            continue
+        weight = weights.get(str(pid), 1.0)
+        if weight != 1.0:
+            parts.append(f"({content}:{weight:.2f})")
+        else:
+            parts.append(content)
+    return separator.join(parts)
 
 
 class HezlPromptNode:
@@ -24,11 +93,9 @@ class HezlPromptNode:
             },
         }
 
-    # Source of truth: the maximum number of outputs (1 + MAX_BARS).
-    # The frontend dynamically trims the visible output slots to match the
-    # current bar count (default 1 bar => only "输出全部" and "词组栏01" are visible).
-    RETURN_TYPES = ("STRING",) * (1 + MAX_BARS)
-    RETURN_NAMES = ("输出全部",) + tuple(_bar_label(i) for i in range(MAX_BARS))
+    # Static ceiling; the frontend trims visible slots to the live solo count.
+    RETURN_TYPES = ("STRING",) * MAX_OUTPUTS
+    RETURN_NAMES = ("输出全部",) + tuple(f"单独输出{i+1:02d}" for i in range(MAX_SOLO_ITEMS))
     FUNCTION = "generate_prompt"
     CATEGORY = "Hezl-Node/Prompt"
     OUTPUT_NODE = True
@@ -39,73 +106,60 @@ class HezlPromptNode:
 
     @classmethod
     def VALIDATE_INPUTS(cls, **kwargs):
+        # Dynamic textbox inputs arrive as arbitrary kwargs; accept them all.
         return True
 
-    def generate_prompt(self, selected_prompts, prompt_id=None):
+    def generate_prompt(self, selected_prompts, prompt_id=None, **kwargs):
         try:
-            data = json.loads(selected_prompts)
-            bars = data.get("bars", None)
-            if bars is None:
-                # Legacy format - convert to single bar
-                prompts = data.get("prompts", [])
-                weights = data.get("weights", {})
-                disabled = data.get("disabled", {})
-                bars = [{
-                    "name": _bar_label(0),
-                    "prompts": prompts,
-                    "weights": weights,
-                    "disabled": disabled
-                }]
+            data = json.loads(selected_prompts) if selected_prompts else {}
+            items = _migrate_to_items(data)
 
-            # Make sure every bar has a name; otherwise label it with its index
-            for i, bar in enumerate(bars):
-                if not bar.get("name"):
-                    bar["name"] = _bar_label(i)
+            # Make sure every item has a name and a solo flag.
+            for i, item in enumerate(items):
+                if not item.get("name"):
+                    item["name"] = _item_label(i)
+                if item.get("solo") is None:
+                    item["solo"] = False
 
-            def format_bar(bar):
-                prompts = bar.get("prompts", [])
-                weights = bar.get("weights", {})
-                disabled = bar.get("disabled", {})
-                separator = bar.get("prompt_separator", ", ")
-                result_parts = []
-                for p in prompts:
-                    title = p.get("title", "")
-                    content = p.get("content", "")
-                    pid = p.get("id", title)  # Use id as key, fallback to title for legacy
-                    if disabled.get(str(pid), False):
-                        continue
-                    weight = weights.get(str(pid), 1.0)
-                    if weight != 1.0:
-                        formatted = f"({content}:{weight:.2f})"
+            # Compute each item's resolved string once.
+            resolved = []
+            for item in items:
+                resolved.append(_resolve_item_value(item, item["name"], kwargs))
+
+            # "输入全部替换": if an external STRING is connected to this slot,
+            # the "输出全部" output returns ONLY the external string.
+            replace_all = kwargs.get("输入全部替换")
+            if replace_all not in (None, ""):
+                all_output = str(replace_all)
+            else:
+                # "输出全部": concatenate items in display order, skipping solo ones.
+                # Each item's ``bar_separator`` ("与下一个词组栏间隔符号") means
+                # "the gap between THIS item and the next non-solo item". So the
+                # separator that glues the previous item to the current one is
+                # the previous item's ``bar_separator``.
+                non_solo = [it for it in items if not it.get("solo")]
+                resolved_non_solo = [
+                    resolved[i] for i, it in enumerate(items) if not it.get("solo")
+                ]
+                all_output = ""
+                for idx, text in enumerate(resolved_non_solo):
+                    if idx == 0:
+                        all_output = text
                     else:
-                        formatted = content
-                    result_parts.append(formatted)
-                return separator.join(result_parts)
+                        # Gap between previous item and current = previous item's separator
+                        all_output += non_solo[idx - 1].get("bar_separator", ", ")
+                        all_output += text
 
-            # Build all outputs
-            all_parts = []
-            bar_results = []
-            for bar in bars:
-                bar_result = format_bar(bar)
-                bar_results.append(bar_result)
-                all_parts.append(bar_result)
+            # Dedicated outputs: one per solo item, in display order.
+            solo_outputs = []
+            for i, item in enumerate(items):
+                if item.get("solo"):
+                    solo_outputs.append(resolved[i])
 
-            # Join bars using each bar's own bar_separator (separator between this bar and the next)
-            all_output = ""
-            for i, part in enumerate(all_parts):
-                if i > 0:
-                    # Use the previous bar's bar_separator
-                    prev_sep = bars[i - 1].get("bar_separator", ", ")
-                    all_output += prev_sep
-                all_output += part
-
-            # Build results: first is all combined, then one per bar
-            # Pad with empty strings for unused outputs
-            results = [all_output] + bar_results
-            while len(results) < 1 + MAX_BARS:
+            results = [all_output] + solo_outputs
+            while len(results) < MAX_OUTPUTS:
                 results.append("")
-
             return tuple(results)
         except Exception as e:
             error_result = f"Error: {str(e)}"
-            return tuple([error_result] * (1 + MAX_BARS))
+            return tuple([error_result] * MAX_OUTPUTS)

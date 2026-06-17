@@ -451,6 +451,16 @@ const HEZL_PROMPT_CSS = `
     background: #219a52;
 }
 
+/* "单独输出" button active state: yellow (matches the solo border color) */
+.hezl-btn.solo-btn-on {
+    background: #f1c40f;
+    color: #1a1a1a;
+}
+
+.hezl-btn.solo-btn-on:hover {
+    background: #d4ac0d;
+}
+
 .hezl-btn.danger {
     background: #e74c3c;
 }
@@ -880,24 +890,65 @@ const HEZL_PROMPT_CSS = `
     box-shadow: 0 1px 2px rgba(0,0,0,0.25);
     letter-spacing: 0.3px;
 }
+
+/* 单独输出 (solo): highlight the whole item with a single yellow border
+   on the outermost layer. No inset box-shadow (that created a 2nd line). */
+.hezl-bar-section.solo-active {
+    border-color: #f1c40f;
+}
+
+/* Two add buttons row at the bottom (文本框 / 词组栏) */
+.hezl-add-bar-row {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.hezl-add-bar-row .hezl-add-bar-btn {
+    flex: 1;
+    margin-top: 0;
+}
+
+/* Textbox item: full-width textarea */
+.hezl-textbox-zone {
+    padding: 6px;
+    background: #1a1a1a;
+}
+
+.hezl-textbox-input {
+    width: 100%;
+    min-height: 48px;
+    box-sizing: border-box;
+    background: #222;
+    color: #e6ffe6;
+    border: 1px solid #3a3a3a;
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: 12px;
+    font-family: Arial, sans-serif;
+    resize: vertical;
+    outline: none;
+}
+
+.hezl-textbox-input:focus {
+    border-color: #3498db;
+}
 `;
 
 class HezlPromptWidget {
     constructor(node, inputName, inputData, app) {
         this.node = node;
         this.app = app;
-        // Multi-bar data structure: each bar has its own prompts, weights, disabled
-        this.bars = [
-            {
-                name: '词组栏01',
-                prompts: [],
-                weights: {},
-                disabled: {},
-                prompt_separator: ', ',
-                bar_separator: ', '
-            }
+        // Unified ordered list of items. Each item has a `type`:
+        //   - 'bar'     : 词组栏 (prompts / weights / disabled / separators)
+        //   - 'textbox' : 文本框 (manually typed `text`, optional STRING input)
+        // Every item also carries `solo` (单独输出 switch) and a `name`.
+        this.items = [
+            this._makeBar()
         ];
-        this.selectedBarIndex = 0;
+        this._barCounter = 1;   // used to generate default bar names
+        this._boxCounter = 0;   // used to generate default textbox names
+        this.selectedItemIndex = 0;
         this._nextPromptId = 1;
         this.folderStructure = null;
         this.currentFolder = "";
@@ -909,11 +960,55 @@ class HezlPromptWidget {
 
         this.injectStyles();
         this.createWidget();
-        // Render the default bar(s) so they are visible on first launch
-        this.renderBars();
-        // Sync the node's output slots to match the current bar count (default 1 bar => 2 outputs)
+        // Render the default item(s) so they are visible on first launch
+        this.renderItems();
+        // Sync the node's output slots (only solo items get dedicated outputs)
         this.updateNodeOutputs();
+        // Sync the node's input slots ("输入全部替换" + textbox inputs)
+        this.updateNodeInputs();
         this.loadFolderStructure();
+    }
+
+    // ---------- item factory helpers ----------
+    _makeBar(name) {
+        this._barCounter += 0;
+        return {
+            type: 'bar',
+            name: name || `词组栏${String(this._barCounter).padStart(2, '0')}`,
+            prompts: [],
+            weights: {},
+            disabled: {},
+            prompt_separator: ', ',
+            bar_separator: ', ',
+            solo: false
+        };
+    }
+
+    _makeTextbox(name) {
+        this._boxCounter += 1;
+        return {
+            type: 'textbox',
+            name: name || `文本框${String(this._boxCounter).padStart(2, '0')}`,
+            text: '',
+            bar_separator: ', ',
+            solo: false
+        };
+    }
+
+    // Backwards-compatible alias: treat the flat items list as "bars" for the
+    // many helper methods that iterate this.bars. Exposing it as a getter keeps
+    // those methods working while the real source of truth is this.items.
+    get bars() {
+        return this.items;
+    }
+    set bars(v) {
+        this.items = v;
+    }
+    get selectedBarIndex() {
+        return this.selectedItemIndex;
+    }
+    set selectedBarIndex(v) {
+        this.selectedItemIndex = v;
     }
     
     injectStyles() {
@@ -954,7 +1049,10 @@ class HezlPromptWidget {
             <div class="hezl-splitter-horizontal" id="hezl-splitter-horizontal"></div>
             <div class="hezl-prompt-bottom" id="hezl-prompt-bottom">
                 <div id="hezl-bars-container"></div>
-                <button class="hezl-add-bar-btn" id="hezl-add-bar" title="添加词组栏">+</button>
+                <div class="hezl-add-bar-row">
+                    <button class="hezl-add-bar-btn" id="hezl-add-textbox" title="添加文本框">＋ 文本框</button>
+                    <button class="hezl-add-bar-btn" id="hezl-add-bar" title="添加词组栏">＋ 词组栏</button>
+                </div>
             </div>
         `;
         
@@ -1003,11 +1101,17 @@ class HezlPromptWidget {
             });
         }
 
-        // Feature 4: Add bar button
+        // Feature 4: Add bar / add textbox buttons
         const addBarBtn = this.container.querySelector('#hezl-add-bar');
         if (addBarBtn) {
             addBarBtn.addEventListener('click', () => {
                 this.addBar();
+            });
+        }
+        const addTextboxBtn = this.container.querySelector('#hezl-add-textbox');
+        if (addTextboxBtn) {
+            addTextboxBtn.addEventListener('click', () => {
+                this.addTextbox();
             });
         }
         
@@ -1114,72 +1218,103 @@ class HezlPromptWidget {
         }
     }
     
-    // ==================== Multi-bar management ====================
+    // ==================== Multi-item management ====================
 
     addBar() {
-        if (this.bars.length >= 10) {
-            alert('最多支持10个词组栏');
+        if (this.items.length >= 20) {
+            alert('最多支持20个条目');
             return;
         }
-        const newIndex = this.bars.length;
-        this.bars.push({
-            name: `词组栏${String(newIndex + 1).padStart(2, '0')}`,
-            prompts: [],
-            weights: {},
-            disabled: {},
-            prompt_separator: ', ',
-            bar_separator: ', '
-        });
+        this._barCounter = Math.max(this._barCounter, this._countType('bar'));
+        this._barCounter += 1;
+        const item = this._makeBar();
+        const newIndex = this.items.length;
+        this.items.push(item);
         this.selectedBarIndex = newIndex;
-        this.renderBars();
+        this.renderItems();
         this.updateOutput();
         this.updateNodeOutputs();
     }
 
-    removeBar(barIndex) {
-        if (this.bars.length <= 1) {
-            alert('至少需要保留一个词组栏');
+    addTextbox() {
+        if (this.items.length >= 20) {
+            alert('最多支持20个条目');
             return;
         }
-        if (confirm('确定要移除此词组栏吗？')) {
-            this.bars.splice(barIndex, 1);
+        this._boxCounter = Math.max(this._boxCounter, this._countType('textbox'));
+        const item = this._makeTextbox();
+        const newIndex = this.items.length;
+        this.items.push(item);
+        this.selectedBarIndex = newIndex;
+        this.renderItems();
+        this.updateOutput();
+        this.updateNodeInputs();
+    }
+
+    _countType(type) {
+        let n = 0;
+        for (const it of this.items) if (it.type === type) n++;
+        return n;
+    }
+
+    removeBar(barIndex) {
+        if (this.items.length <= 1) {
+            alert('至少需要保留一个条目');
+            return;
+        }
+        if (confirm('确定要移除此条目吗？')) {
+            const removed = this.items[barIndex];
+            this.items.splice(barIndex, 1);
             // Adjust selectedBarIndex
-            if (this.selectedBarIndex >= this.bars.length) {
-                this.selectedBarIndex = this.bars.length - 1;
+            if (this.selectedBarIndex >= this.items.length) {
+                this.selectedBarIndex = this.items.length - 1;
             } else if (this.selectedBarIndex > barIndex) {
                 this.selectedBarIndex--;
             } else if (this.selectedBarIndex === barIndex) {
-                this.selectedBarIndex = Math.min(barIndex, this.bars.length - 1);
+                this.selectedBarIndex = Math.min(barIndex, this.items.length - 1);
             }
-            this.renderBars();
+            this.renderItems();
             this.updateOutput();
             this.updateNodeOutputs();
+            this.updateNodeInputs();
             this.renderPromptList(); // Update count badges
         }
     }
 
     moveBar(fromIndex, toIndex) {
         if (fromIndex === toIndex) return;
-        const bar = this.bars.splice(fromIndex, 1)[0];
-        this.bars.splice(toIndex, 0, bar);
+        const bar = this.items.splice(fromIndex, 1)[0];
+        this.items.splice(toIndex, 0, bar);
         // Update selectedBarIndex to follow the moved bar
         this.selectedBarIndex = toIndex;
-        this.renderBars();
+        this.renderItems();
+        this.updateOutput();
+        this.updateNodeOutputs();
+        this.updateNodeInputs();
+    }
+
+    // Toggle the "单独输出" (solo) switch on an item.
+    toggleSolo(itemIndex) {
+        const item = this.items[itemIndex];
+        if (!item) return;
+        item.solo = !item.solo;
+        this.renderItems();
         this.updateOutput();
         this.updateNodeOutputs();
     }
 
     getBarLabel(index) {
-        const bar = this.bars[index];
+        const bar = this.items[index];
         if (bar && bar.name) {
             return bar.name;
         }
-        return `词组栏${String(index + 1).padStart(2, '0')}`;
+        return `条目${String(index + 1).padStart(2, '0')}`;
     }
 
     renameBar(barIndex, labelEl) {
-        const bar = this.bars[barIndex];
-        const currentName = bar.name || `词组栏${String(barIndex + 1).padStart(2, '0')}`;
+        const bar = this.items[barIndex];
+        if (!bar) return;
+        const currentName = bar.name || `条目${String(barIndex + 1).padStart(2, '0')}`;
 
         // Replace label with input
         const input = document.createElement('input');
@@ -1194,13 +1329,16 @@ class HezlPromptWidget {
         input.select();
 
         const finishRename = () => {
-            const newName = input.value.trim();
+            const newName = (input.value || '').trim() || currentName;
             bar.name = newName;
             input.remove();
             labelEl.style.display = '';
             labelEl.textContent = this.getBarLabel(barIndex);
             this.updateOutput();
             this.updateNodeOutputs();
+            // For textbox items, rebuilding inputs preserves the existing
+            // connection onto the renamed slot (updateNodeInputs reconnects).
+            this.updateNodeInputs();
         };
 
         input.addEventListener('blur', finishRename);
@@ -1218,18 +1356,25 @@ class HezlPromptWidget {
     showSeparatorModal(barIndex) {
         const bar = this.bars[barIndex];
         if (!bar) return;
+        const isTextbox = bar.type === 'textbox';
         const currentSep = bar.prompt_separator || ', ';
         const currentBarSep = bar.bar_separator || ', ';
+
+        // For textbox items, the prompt_separator field doesn't apply (no
+        // prompts inside a textbox), so we hide it and only show bar_separator.
+        const promptSepGroup = isTextbox ? '' : `
+            <div class="hezl-form-group">
+                <label class="hezl-form-label">词组间间隔符号</label>
+                <input type="text" class="hezl-form-input" id="hezl-sep-prompt" value="${this.escapeHtml(currentSep)}" placeholder="默认: , ">
+            </div>
+        `;
 
         const modal = document.createElement('div');
         modal.className = 'hezl-modal';
         modal.innerHTML = `
             <div class="hezl-modal-content">
                 <div class="hezl-modal-header">间隔符号设置</div>
-                <div class="hezl-form-group">
-                    <label class="hezl-form-label">词组间间隔符号</label>
-                    <input type="text" class="hezl-form-input" id="hezl-sep-prompt" value="${this.escapeHtml(currentSep)}" placeholder="默认: , ">
-                </div>
+                ${promptSepGroup}
                 <div class="hezl-form-group">
                     <label class="hezl-form-label">与下一个词组栏间隔符号</label>
                     <input type="text" class="hezl-form-input" id="hezl-sep-bar" value="${this.escapeHtml(currentBarSep)}" placeholder="默认: , ">
@@ -1248,10 +1393,11 @@ class HezlPromptWidget {
         });
 
         modal.querySelector('#hezl-modal-save').addEventListener('click', () => {
-            const newSep = modal.querySelector('#hezl-sep-prompt').value;
-            const newBarSep = modal.querySelector('#hezl-sep-bar').value;
-            bar.prompt_separator = newSep;
-            bar.bar_separator = newBarSep;
+            const promptSepInput = modal.querySelector('#hezl-sep-prompt');
+            if (promptSepInput) {
+                bar.prompt_separator = promptSepInput.value;
+            }
+            bar.bar_separator = modal.querySelector('#hezl-sep-bar').value;
             this.updateOutput();
             modal.remove();
         });
@@ -1265,73 +1411,111 @@ class HezlPromptWidget {
 
     // Legacy compatibility getters
     get selectedPrompts() {
-        return this.bars.reduce((acc, bar) => acc.concat(bar.prompts), []);
+        return this.items.reduce((acc, bar) => acc.concat(bar.type === 'bar' ? (bar.prompts || []) : []), []);
     }
 
     get promptWeights() {
         const merged = {};
-        this.bars.forEach(bar => Object.assign(merged, bar.weights));
+        this.items.forEach(bar => { if (bar.type === 'bar') Object.assign(merged, bar.weights || {}); });
         return merged;
     }
 
     get promptDisabled() {
         const merged = {};
-        this.bars.forEach(bar => Object.assign(merged, bar.disabled));
+        this.items.forEach(bar => { if (bar.type === 'bar') Object.assign(merged, bar.disabled || {}); });
         return merged;
     }
 
     getTotalSelectedCount() {
-        return this.bars.reduce((acc, bar) => acc + bar.prompts.length, 0);
+        return this.items.reduce((acc, bar) => acc + (bar.type === 'bar' ? (bar.prompts || []).length : 0), 0);
     }
 
-    // ==================== Feature 4: Render bars ====================
+    // ==================== Feature 4: Render items (bars + textboxes) ====================
 
     renderBars() {
         let html = '';
-        this.bars.forEach((bar, barIndex) => {
+        this.items.forEach((item, barIndex) => {
             const label = this.getBarLabel(barIndex);
             const isSelected = this.selectedBarIndex === barIndex ? 'selected-bar' : '';
-            html += `
-                <div class="hezl-bar-section ${isSelected}" data-bar-index="${barIndex}">
-                    <div class="hezl-bar-header" draggable="true" data-bar-index="${barIndex}">
-                        <div class="hezl-bar-actions-left">
-                            <span class="hezl-bar-label" data-bar="${barIndex}" title="双击重命名">${label}</span>
-                            <button class="hezl-btn small hezl-bar-rename-btn" data-bar="${barIndex}" title="重命名词组栏">重命名</button>
-                            <button class="hezl-btn small danger hezl-bar-remove-all" data-bar="${barIndex}">移除全部</button>
-                            <button class="hezl-btn small warning hezl-bar-disable-all" data-bar="${barIndex}">全部禁用</button>
-                            <button class="hezl-btn small success hezl-bar-enable-all" data-bar="${barIndex}">全部启用</button>
-                        </div>
-                        <div class="hezl-bar-actions-right">
-                            <button class="hezl-btn small hezl-bar-separator-btn" data-bar="${barIndex}" title="间隔符号设置">间隔符号</button>
-                            <button class="hezl-btn small danger hezl-bar-delete" data-bar="${barIndex}" title="删除词组栏">✕</button>
-                        </div>
+            const soloClass = item.solo ? 'solo-active' : '';
+            const soloBtnClass = item.solo ? 'solo-btn-on' : '';
+
+            // Common header (draggable for reorder). Per-type action buttons
+            // are injected into .hezl-bar-actions-left / .hezl-bar-actions-right.
+            let leftActions = '';
+            let rightActions = '';
+            let bodyHtml = '';
+
+            if (item.type === 'textbox') {
+                // Textbox: no 移除全部/全部禁用/全部启用. Other features same as bar.
+                leftActions = `
+                    <span class="hezl-bar-label" data-bar="${barIndex}" title="双击重命名">${label}</span>
+                    <button class="hezl-btn small hezl-bar-rename-btn" data-bar="${barIndex}" title="重命名">重命名</button>
+                `;
+                rightActions = `
+                    <button class="hezl-btn small hezl-bar-separator-btn" data-bar="${barIndex}" title="间隔符号设置">间隔符号</button>
+                    <button class="hezl-btn small ${soloBtnClass} hezl-bar-solo-btn" data-bar="${barIndex}" title="开启后此文本框单独输出,不参与输出全部">单独输出</button>
+                    <button class="hezl-btn small danger hezl-bar-delete" data-bar="${barIndex}" title="删除文本框">✕</button>
+                `;
+                bodyHtml = `
+                    <div class="hezl-textbox-zone" data-bar-index="${barIndex}">
+                        <textarea class="hezl-textbox-input" data-bar="${barIndex}" placeholder="输入文本,或连接字符串到同名输入接口">${this.escapeHtml(item.text || '')}</textarea>
                     </div>
-                    <div class="hezl-bar-drop-zone" data-bar-index="${barIndex}">
-                        <div class="hezl-preview-container" data-bar-index="${barIndex}">
-            `;
-            if (bar.prompts.length === 0) {
-                html += '<div class="hezl-empty-state" style="width: 100%; padding: 10px;">点击上方词组添加到此处</div>';
+                `;
             } else {
-                bar.prompts.forEach((prompt, promptIndex) => {
-                    const pid = prompt.id;
-                    const weight = bar.weights[pid] || 1.0;
-                    const isDisabled = bar.disabled[pid] || false;
-                    html += `
-                        <div class="hezl-preview-item ${isDisabled ? 'disabled' : ''}" data-bar-index="${barIndex}" data-prompt-index="${promptIndex}" data-prompt-id="${pid}" draggable="true">
-                            <span class="hezl-preview-text" title="${this.escapeHtml(prompt.content)}">${this.escapeHtml(prompt.title)}</span>
-                            <div class="hezl-weight-control">
-                                <button class="hezl-weight-btn" data-action="decrease">-</button>
-                                <span class="hezl-weight-value">${weight.toFixed(2)}</span>
-                                <button class="hezl-weight-btn" data-action="increase">+</button>
+                // Bar (词组栏): full action set.
+                leftActions = `
+                    <span class="hezl-bar-label" data-bar="${barIndex}" title="双击重命名">${label}</span>
+                    <button class="hezl-btn small hezl-bar-rename-btn" data-bar="${barIndex}" title="重命名词组栏">重命名</button>
+                    <button class="hezl-btn small danger hezl-bar-remove-all" data-bar="${barIndex}">移除全部</button>
+                    <button class="hezl-btn small warning hezl-bar-disable-all" data-bar="${barIndex}">全部禁用</button>
+                    <button class="hezl-btn small success hezl-bar-enable-all" data-bar="${barIndex}">全部启用</button>
+                `;
+                rightActions = `
+                    <button class="hezl-btn small hezl-bar-separator-btn" data-bar="${barIndex}" title="间隔符号设置">间隔符号</button>
+                    <button class="hezl-btn small ${soloBtnClass} hezl-bar-solo-btn" data-bar="${barIndex}" title="开启后此词组栏单独输出,不参与输出全部">单独输出</button>
+                    <button class="hezl-btn small danger hezl-bar-delete" data-bar="${barIndex}" title="删除词组栏">✕</button>
+                `;
+                const prompts = item.prompts || [];
+                if (prompts.length === 0) {
+                    bodyHtml = `<div class="hezl-bar-drop-zone" data-bar-index="${barIndex}">
+                        <div class="hezl-preview-container" data-bar-index="${barIndex}">
+                            <div class="hezl-empty-state" style="width: 100%; padding: 10px;">点击上方词组添加到此处</div>
+                        </div>
+                    </div>`;
+                } else {
+                    let itemsHtml = '';
+                    prompts.forEach((prompt, promptIndex) => {
+                        const pid = prompt.id;
+                        const weight = item.weights[pid] || 1.0;
+                        const isDisabled = item.disabled[pid] || false;
+                        itemsHtml += `
+                            <div class="hezl-preview-item ${isDisabled ? 'disabled' : ''}" data-bar-index="${barIndex}" data-prompt-index="${promptIndex}" data-prompt-id="${pid}" draggable="true">
+                                <span class="hezl-preview-text" title="${this.escapeHtml(prompt.content)}">${this.escapeHtml(prompt.title)}</span>
+                                <div class="hezl-weight-control">
+                                    <button class="hezl-weight-btn" data-action="decrease">-</button>
+                                    <span class="hezl-weight-value">${weight.toFixed(2)}</span>
+                                    <button class="hezl-weight-btn" data-action="increase">+</button>
+                                </div>
+                                <button class="hezl-remove-btn" data-bar-index="${barIndex}" data-prompt-index="${promptIndex}" data-prompt-id="${pid}">✕</button>
                             </div>
-                            <button class="hezl-remove-btn" data-bar-index="${barIndex}" data-prompt-index="${promptIndex}" data-prompt-id="${pid}">✕</button>
+                        `;
+                    });
+                    bodyHtml = `
+                        <div class="hezl-bar-drop-zone" data-bar-index="${barIndex}">
+                            <div class="hezl-preview-container" data-bar-index="${barIndex}">${itemsHtml}</div>
                         </div>
                     `;
-                });
+                }
             }
+
             html += `
-                        </div>
+                <div class="hezl-bar-section ${isSelected} ${soloClass}" data-bar-index="${barIndex}">
+                    <div class="hezl-bar-header" draggable="true" data-bar-index="${barIndex}">
+                        <div class="hezl-bar-actions-left">${leftActions}</div>
+                        <div class="hezl-bar-actions-right">${rightActions}</div>
                     </div>
+                    ${bodyHtml}
                 </div>
             `;
         });
@@ -1339,6 +1523,9 @@ class HezlPromptWidget {
         this.barsContainer.innerHTML = html;
         this.bindBarEvents();
     }
+
+    // Alias used in some call sites.
+    renderItems() { this.renderBars(); }
 
     bindBarEvents() {
         // Bar action buttons
@@ -1384,6 +1571,29 @@ class HezlPromptWidget {
             });
         });
 
+        // Solo (单独输出) toggle button
+        this.barsContainer.querySelectorAll('.hezl-bar-solo-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const barIndex = parseInt(btn.dataset.bar);
+                this.toggleSolo(barIndex);
+            });
+        });
+
+        // Textbox textarea input -> persist typed text
+        this.barsContainer.querySelectorAll('.hezl-textbox-input').forEach(ta => {
+            ta.addEventListener('input', (e) => {
+                const barIndex = parseInt(ta.dataset.bar);
+                const item = this.items[barIndex];
+                if (item && item.type === 'textbox') {
+                    item.text = ta.value;
+                    this.updateOutput();
+                }
+            });
+            // Prevent header drag/click selection when interacting with the textarea
+            ta.addEventListener('mousedown', (e) => e.stopPropagation());
+        });
+
         // Rename button click
         this.barsContainer.querySelectorAll('.hezl-bar-rename-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -1408,8 +1618,8 @@ class HezlPromptWidget {
         // Click on bar section to select it
         this.barsContainer.querySelectorAll('.hezl-bar-section').forEach(section => {
             section.addEventListener('click', (e) => {
-                // Don't select if clicking on buttons or preview items
-                if (e.target.closest('.hezl-bar-header') || e.target.closest('.hezl-preview-item') || e.target.closest('.hezl-remove-btn') || e.target.closest('.hezl-weight-btn')) return;
+                // Don't select if clicking on buttons, preview items, or the textbox
+                if (e.target.closest('.hezl-bar-header') || e.target.closest('.hezl-preview-item') || e.target.closest('.hezl-remove-btn') || e.target.closest('.hezl-weight-btn') || e.target.closest('.hezl-textbox-input')) return;
                 const barIndex = parseInt(section.dataset.barIndex);
                 this.selectedBarIndex = barIndex;
                 this.renderBars();
@@ -2509,8 +2719,9 @@ class HezlPromptWidget {
                 
                 if (result.success) {
                     // Update in all bars
-                    for (const bar of this.bars) {
-                        for (const p of bar.prompts) {
+                    for (const bar of this.items) {
+                        if (bar.type !== 'bar') continue;
+                        for (const p of (bar.prompts || [])) {
                             if (p.title === promptTitle) {
                                 p.title = newTitle;
                                 p.content = newContent;
@@ -3053,9 +3264,24 @@ class HezlPromptWidget {
         if (!prompt) return;
 
         const source = prompt.source || this.currentFolder;
-        const targetBarIndex = this.selectedBarIndex;
+        // If the currently selected item is a textbox, find the nearest bar
+        // to add the prompt into instead (prompts can only live in bar items).
+        let targetBarIndex = this.selectedBarIndex;
+        const target = this.items[targetBarIndex];
+        if (!target || target.type !== 'bar') {
+            // Scan backward, then forward, for the first bar
+            for (let d = -1; d < this.items.length; d++) {
+                const idx = targetBarIndex + d;
+                if (idx >= 0 && idx < this.items.length && this.items[idx].type === 'bar') {
+                    targetBarIndex = idx;
+                    break;
+                }
+            }
+        }
+        const bar = this.items[targetBarIndex];
+        if (!bar || bar.type !== 'bar') return;
 
-        // Always add to the selected bar (allow duplicates)
+        // Always add to the target bar (allow duplicates)
         const id = this._nextPromptId++;
         const newPrompt = {
             id: id,
@@ -3063,9 +3289,9 @@ class HezlPromptWidget {
             content: prompt.content,
             folder: source
         };
-        this.bars[targetBarIndex].prompts.push(newPrompt);
-        this.bars[targetBarIndex].weights[id] = 1.0;
-        this.bars[targetBarIndex].disabled[id] = false;
+        bar.prompts.push(newPrompt);
+        bar.weights[id] = 1.0;
+        bar.disabled[id] = false;
 
         this.updateFolderCounts();
         this.renderPromptList();
@@ -3076,8 +3302,9 @@ class HezlPromptWidget {
     // Count how many times a prompt title appears across all bars
     getPromptCountInBars(promptTitle) {
         let count = 0;
-        for (const bar of this.bars) {
-            for (const p of bar.prompts) {
+        for (const bar of this.items) {
+            if (bar.type !== 'bar') continue;
+            for (const p of (bar.prompts || [])) {
                 if (p.title === promptTitle) count++;
             }
         }
@@ -3087,8 +3314,9 @@ class HezlPromptWidget {
     updateFolderCounts() {
         this.folderSelectedCounts = {};
 
-        for (const bar of this.bars) {
-            for (const prompt of bar.prompts) {
+        for (const bar of this.items) {
+            if (bar.type !== 'bar') continue;
+            for (const prompt of (bar.prompts || [])) {
                 const folder = prompt.folder || '';
                 if (folder) {
                     this.folderSelectedCounts[folder] = (this.folderSelectedCounts[folder] || 0) + 1;
@@ -3131,9 +3359,10 @@ class HezlPromptWidget {
                     return !(p.title === promptTitle && source === promptSource);
                 });
 
-                // Remove from all bars
-                for (const bar of this.bars) {
-                    for (let i = bar.prompts.length - 1; i >= 0; i--) {
+                // Remove from all bars (skip textboxes which have no prompts)
+                for (const bar of this.items) {
+                    if (bar.type !== 'bar') continue;
+                    for (let i = (bar.prompts || []).length - 1; i >= 0; i--) {
                         if (bar.prompts[i].title === promptTitle && bar.prompts[i].folder === promptSource) {
                             const pid = bar.prompts[i].id;
                             bar.prompts.splice(i, 1);
@@ -3198,34 +3427,35 @@ class HezlPromptWidget {
         if (this.node && this.node.widgets) {
             const widget = this.node.widgets.find(w => w.name === 'selected_prompts');
             if (widget) {
+                // BUG2 fix: Use 'items' key (not 'bars') so the backend's
+                // _migrate_to_items() preserves each item's 'type' field.
+                // The 'bars' key branch forces type='bar', which makes
+                // textboxes lose their type and their text never outputs.
                 widget.value = JSON.stringify({
-                    bars: this.bars
+                    items: this.items
                 });
             }
         }
     }
 
     // Feature 5: Dynamic output slots
+    // Rule: slot 0 is always "输出全部". After that, one dedicated output per
+    // item whose "单独输出" (solo) switch is ON, in display order.
     updateNodeOutputs() {
         if (!this.node) return;
-        const barCount = this.bars.length;
-        // Total outputs: 1 (输出全部) + barCount (词组栏01, 02, ...)
-        const outputCount = 1 + barCount;
 
-        // Update node output types and names
-        const returnTypes = [];
-        const returnNames = [];
-        returnTypes.push("STRING");
-        returnNames.push("输出全部");
-        for (let i = 0; i < barCount; i++) {
-            returnTypes.push("STRING");
-            returnNames.push(this.getBarLabel(i));
+        const soloNames = [];
+        for (const item of this.items) {
+            if (item.solo) soloNames.push(this._uniqueOutputName(item.name, soloNames));
         }
+        const outputCount = 1 + soloNames.length;
+
+        const returnTypes = ["STRING", ...soloNames.map(() => "STRING")];
+        const returnNames = ["输出全部", ...soloNames];
 
         this.node.constructor.RETURN_TYPES = returnTypes;
         this.node.constructor.RETURN_NAMES = returnNames;
 
-        // Update the node's outputs on the graph
         if (this.node.outputs) {
             // Remove extra outputs
             while (this.node.outputs.length > outputCount) {
@@ -3258,6 +3488,86 @@ class HezlPromptWidget {
             this.node.graph.setDirtyCanvas(true, true);
         }
     }
+
+    // Disambiguate an output name against an already-collected list so two
+    // solo items never share the same output slot name.
+    _uniqueOutputName(baseName, existing) {
+        if (!existing.includes(baseName)) return baseName;
+        let n = 2;
+        while (existing.includes(`${baseName}${n}`)) n++;
+        return `${baseName}${n}`;
+    }
+
+    // Dynamic INPUT slots.
+    // Slot 0 is always "输入全部替换": when an external STRING connects here,
+    // the "输出全部" output returns ONLY the external string (replacing all).
+    // Subsequent slots are one STRING input per textbox item, named after the
+    // item, in display order. We do a full rebuild while preserving existing
+    // connections: before removing we record (origin node, origin slot) for
+    // each connected input, then after rebuilding we reconnect them onto the
+    // matching new slot (matched by the OLD name).
+    updateNodeInputs() {
+        if (!this.node || !this.node.inputs) return;
+
+        const REPLACE_ALL_NAME = '输入全部替换';
+        const textboxItems = this.items.filter(it => it.type === 'textbox');
+        // Map: old input name -> {originNode, originSlot} for connected slots.
+        const connections = {};
+        for (const inp of this.node.inputs) {
+            if (inp && inp.type === 'STRING' && inp.name !== 'selected_prompts' && inp.link != null) {
+                const linkId = inp.link;
+                const link = this.node.graph && this.node.graph.links ? this.node.graph.links[linkId] : null;
+                if (link) {
+                    const originNode = this.node.graph.getNodeById(link.origin_id);
+                    if (originNode) {
+                        connections[inp.name] = { originNode, originSlot: link.origin_slot };
+                    }
+                }
+            }
+        }
+
+        // Remove all STRING inputs (keep the selected_prompts widget if any).
+        for (let i = this.node.inputs.length - 1; i >= 0; i--) {
+            const inp = this.node.inputs[i];
+            if (inp && inp.type === 'STRING' && inp.name !== 'selected_prompts') {
+                this.node.removeInput(i);
+            }
+        }
+
+        // Always add "输入全部替换" as the first input slot.
+        this.node.addInput(REPLACE_ALL_NAME, 'STRING');
+        const replaceConn = connections[REPLACE_ALL_NAME];
+        if (replaceConn) {
+            try {
+                replaceConn.originNode.connect(replaceConn.originSlot, this.node, this.node.inputs.length - 1);
+            } catch (e) {
+                // best-effort reconnect; ignore failures
+            }
+        }
+
+        // Re-add textbox inputs in display order and reconnect if we had a connection for that name.
+        for (const item of textboxItems) {
+            this.node.addInput(item.name, 'STRING');
+            const conn = connections[item.name];
+            if (conn) {
+                try {
+                    // target slot is the last input we just added
+                    const targetIdx = this.node.inputs.length - 1;
+                    conn.originNode.connect(conn.originSlot, this.node, targetIdx);
+                } catch (e) {
+                    // best-effort reconnect; ignore failures
+                }
+            }
+        }
+
+        if (this.node.setSize) {
+            this.node.setSize(this.node.size);
+        }
+        if (this.node.graph) {
+            this.node.graph.setDirtyCanvas(true, true);
+        }
+    }
+
     
     clearFolderSelection(folderPath) {
         const csvPaths = [];
@@ -3284,8 +3594,9 @@ class HezlPromptWidget {
         }
         
         const promptsToRemove = [];
-        for (const bar of this.bars) {
-            for (const p of bar.prompts) {
+        for (const bar of this.items) {
+            if (bar.type !== 'bar') continue;
+            for (const p of (bar.prompts || [])) {
                 if (csvPaths.includes(p.folder) || p.folder === folderPath) {
                     promptsToRemove.push(p);
                 }
@@ -3295,9 +3606,10 @@ class HezlPromptWidget {
         if (promptsToRemove.length === 0) return;
 
         if (confirm(`确定要取消选择此文件夹中的 ${promptsToRemove.length} 个词组吗？`)) {
-            for (const bar of this.bars) {
+            for (const bar of this.items) {
+                if (bar.type !== 'bar') continue;
                 const idsToRemove = new Set();
-                bar.prompts = bar.prompts.filter(p => {
+                bar.prompts = (bar.prompts || []).filter(p => {
                     if (csvPaths.includes(p.folder) || p.folder === folderPath) {
                         idsToRemove.add(p.id);
                         return false;
@@ -3877,71 +4189,109 @@ app.registerExtension({
                 if (widget) {
                     widget.hidden = true;
                 }
+
+                // BUG1 fix: Remove the selected_prompts input slot so it doesn't
+                // block the dynamic textbox input slots. The widget remains for
+                // state persistence; its value is still passed to the backend.
+                for (let i = this.inputs.length - 1; i >= 0; i--) {
+                    if (this.inputs[i] && this.inputs[i].name === 'selected_prompts') {
+                        this.removeInput(i);
+                        break;
+                    }
+                }
                 
                 const hezlWidget = new HezlPromptWidget(this, 'selected_prompts', {}, app);
                 
                 this.addDOMWidget('hezl_prompt_ui', 'hezl_prompt', hezlWidget.container, {
                     getValue: () => {
                         return JSON.stringify({
-                            bars: hezlWidget.bars
+                            items: hezlWidget.items
                         });
                     },
                     setValue: (value) => {
                         try {
                             const data = JSON.parse(value);
-                            if (data.bars && Array.isArray(data.bars)) {
-                                hezlWidget.bars = data.bars;
+
+                            // ---- Migrate any format into the unified items model ----
+                            if (data.items && Array.isArray(data.items)) {
+                                hezlWidget.items = data.items;
+                            } else if (data.bars && Array.isArray(data.bars)) {
+                                // Legacy bars format → items
+                                hezlWidget.items = data.bars.map(bar => {
+                                    const item = Object.assign({}, bar);
+                                    item.type = item.type || 'bar';
+                                    return item;
+                                });
                             } else if (data.prompts) {
-                                // Legacy format - convert to single bar
-                                hezlWidget.bars = [{
+                                // Oldest legacy format → single bar item
+                                hezlWidget.items = [{
+                                    type: 'bar',
                                     name: '词组栏01',
                                     prompts: data.prompts || [],
                                     weights: data.weights || {},
                                     disabled: data.disabled || {},
                                     prompt_separator: ', ',
-                                    bar_separator: ', '
+                                    bar_separator: ', ',
+                                    solo: false
                                 }];
                             }
-                            // Ensure every prompt has a globally-unique id.
-                            // We reassign fresh ids on load (instead of trusting saved ids)
-                            // because legacy/corrupted data may contain duplicate ids within
-                            // the same bar, which causes disabling one prompt to also toggle
-                            // others sharing that id (weights/disabled are keyed by id).
-                            let nextId = 1;
-                            for (let bi = 0; bi < hezlWidget.bars.length; bi++) {
-                                const bar = hezlWidget.bars[bi];
-                                if (!bar.name) {
-                                    bar.name = `词组栏${String(bi + 1).padStart(2, '0')}`;
+
+                            // ---- Normalize every item ----
+                            let nextPromptId = 1;
+                            let barCount = 0;
+                            let boxCount = 0;
+                            for (let ii = 0; ii < hezlWidget.items.length; ii++) {
+                                const item = hezlWidget.items[ii];
+
+                                // Ensure type / name / solo defaults
+                                if (item.type !== 'textbox') item.type = 'bar';
+                                if (!item.name) item.name = item.type === 'textbox'
+                                    ? `文本框${String(++boxCount).padStart(2, '0')}`
+                                    : `词组栏${String(++barCount).padStart(2, '0')}`;
+                                if (item.solo === undefined) item.solo = false;
+                                if (item.bar_separator === undefined) item.bar_separator = ', ';
+
+                                // For bar items: fix prompt id uniqueness (same as before)
+                                if (item.type === 'bar') {
+                                    if (!item.prompts) item.prompts = [];
+                                    if (!item.weights) item.weights = {};
+                                    if (!item.disabled) item.disabled = {};
+                                    if (item.prompt_separator === undefined) item.prompt_separator = ', ';
+                                    const newWeights = {};
+                                    const newDisabled = {};
+                                    for (const p of item.prompts) {
+                                        const oldKey = (p.id !== undefined && p.id !== null) ? p.id : p.title;
+                                        const oldWeight = item.weights[oldKey] !== undefined ? item.weights[oldKey]
+                                                        : (item.weights[p.title] !== undefined ? item.weights[p.title] : 1.0);
+                                        const oldDisabled = item.disabled[oldKey] !== undefined ? item.disabled[oldKey]
+                                                          : (item.disabled[p.title] !== undefined ? item.disabled[p.title] : false);
+                                        const newId = nextPromptId++;
+                                        p.id = newId;
+                                        newWeights[newId] = oldWeight;
+                                        newDisabled[newId] = oldDisabled;
+                                    }
+                                    item.weights = newWeights;
+                                    item.disabled = newDisabled;
+                                } else {
+                                    // textbox
+                                    if (item.text === undefined) item.text = '';
                                 }
-                                if (bar.prompt_separator === undefined) {
-                                    bar.prompt_separator = ', ';
-                                }
-                                if (bar.bar_separator === undefined) {
-                                    bar.bar_separator = ', ';
-                                }
-                                // Reassign a unique id to each prompt and remap its
-                                // weight/disabled state (looking up by old id, then title).
-                                const newWeights = {};
-                                const newDisabled = {};
-                                for (const p of bar.prompts) {
-                                    const oldKey = (p.id !== undefined && p.id !== null) ? p.id : p.title;
-                                    const oldWeight = bar.weights[oldKey] !== undefined ? bar.weights[oldKey]
-                                                    : (bar.weights[p.title] !== undefined ? bar.weights[p.title] : 1.0);
-                                    const oldDisabled = bar.disabled[oldKey] !== undefined ? bar.disabled[oldKey]
-                                                      : (bar.disabled[p.title] !== undefined ? bar.disabled[p.title] : false);
-                                    const newId = nextId++;
-                                    p.id = newId;
-                                    newWeights[newId] = oldWeight;
-                                    newDisabled[newId] = oldDisabled;
-                                }
-                                bar.weights = newWeights;
-                                bar.disabled = newDisabled;
                             }
-                            // Keep the counter past every loaded id so newly added
-                            // prompts never collide with existing ones.
-                            hezlWidget._nextPromptId = nextId;
+
+                            // Derive counters for future addBar / addTextbox
+                            for (const it of hezlWidget.items) {
+                                if (it.type === 'bar') barCount++;
+                                else boxCount++;
+                            }
+                            hezlWidget._barCounter = barCount;
+                            hezlWidget._boxCounter = boxCount;
+
+                            // Keep the prompt-id counter past every loaded id
+                            hezlWidget._nextPromptId = nextPromptId;
+
                             hezlWidget.syncSelectionState();
                             hezlWidget.updateNodeOutputs();
+                            hezlWidget.updateNodeInputs();
                         } catch (e) {}
                     }
                 });
