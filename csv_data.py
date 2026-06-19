@@ -410,3 +410,32 @@ class CSVDataManager:
                 return {"success": False, "error": "Failed to write CSV file"}
         except Exception as e:
             return {"success": False, "error": str(e)}
+
+    def search_prompts(self, keyword):
+        """Search across all CSV files for prompts whose title or content contains keyword.
+
+        Returns a set of relative CSV file paths that contain at least one match.
+        """
+        matches = set()
+        keyword_lower = keyword.lower() if keyword else ""
+        if not keyword_lower:
+            return matches
+
+        for root, dirs, files in os.walk(self.csv_dir):
+            for file_name in files:
+                if not file_name.lower().endswith('.csv'):
+                    continue
+                csv_path = os.path.join(root, file_name)
+                rel_path = os.path.relpath(csv_path, self.csv_dir)
+                try:
+                    with open(csv_path, 'r', encoding='utf-8') as f:
+                        reader = csv.DictReader(f)
+                        for row in reader:
+                            title = (row.get('title', '') or '').lower()
+                            content = (row.get('content', '') or '').lower()
+                            if keyword_lower in title or keyword_lower in content:
+                                matches.add(rel_path.replace(os.sep, '/'))
+                                break
+                except Exception as e:
+                    print(f"Error searching CSV {csv_path}: {e}")
+        return matches

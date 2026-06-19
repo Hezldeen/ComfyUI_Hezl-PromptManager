@@ -587,10 +587,21 @@ const HEZL_PROMPT_CSS = `
     margin-left: auto;
 }
 
+.hezl-sidebar-actions-left {
+    display: flex;
+    gap: 2px;
+}
+
 .hezl-sidebar-actions .hezl-btn {
     padding: 2px 5px;
     font-size: 10px;
     background: rgb(26, 26, 26);
+}
+
+/* Search highlight in filtered folder tree */
+.hezl-folder-item.search-match > .hezl-folder-name {
+    color: #f1c40f;
+    font-weight: 600;
 }
 
 #hezl-add-prompt,
@@ -709,6 +720,10 @@ const HEZL_PROMPT_CSS = `
     color: #fff;
 }
 
+.hezl-prompt-item-wrapper.search-match {
+    border: 1px solid #f1c40f;
+}
+
 .hezl-prompt-item-wrapper.dragging {
     opacity: 0.5;
     transform: scale(0.98);
@@ -774,17 +789,8 @@ const HEZL_PROMPT_CSS = `
     color: #fff;
 }
 
-/* Bar rename button */
+/* Bar rename button: 继承 .hezl-btn.small 的尺寸,仅保留独有样式 */
 .hezl-bar-rename-btn {
-    background: #3498db;
-    color: #fff;
-    border: none;
-    cursor: pointer;
-    font-size: 10px;
-    padding: 2px 6px;
-    border-radius: 3px;
-    transition: background 0.2s;
-    line-height: 1;
     flex-shrink: 0;
 }
 
@@ -845,7 +851,7 @@ const HEZL_PROMPT_CSS = `
     gap: 4px;
 }
 
-/* Selected bar */
+/* Selected bar: 绿色,始终 2px */
 .hezl-bar-section.selected-bar {
     border: 2px solid #27ae60;
 }
@@ -891,10 +897,22 @@ const HEZL_PROMPT_CSS = `
     letter-spacing: 0.3px;
 }
 
-/* 单独输出 (solo): highlight the whole item with a single yellow border
-   on the outermost layer. No inset box-shadow (that created a 2nd line). */
+/* 单独输出 (solo): yellow border. 默认 1px,选中状态(selected-bar)时 2px.
+   CSS 顺序: selected-bar(绿) < solo-active(黄) < disabled-active(红). */
 .hezl-bar-section.solo-active {
-    border-color: #f1c40f;
+    border: 1px solid #f1c40f;
+}
+.hezl-bar-section.solo-active.selected-bar {
+    border: 2px solid #f1c40f;
+}
+
+/* 禁用 (disabled): red border. 优先级最高,覆盖绿色(选中)和黄色(单独输出).
+   默认 1px,选中状态(selected-bar)时 2px. */
+.hezl-bar-section.disabled-active {
+    border: 1px solid #e74c3c;
+}
+.hezl-bar-section.disabled-active.selected-bar {
+    border: 2px solid #e74c3c;
 }
 
 /* Two add buttons row at the bottom (文本框 / 词组栏) */
@@ -957,6 +975,8 @@ class HezlPromptWidget {
         this.expandedFolders = new Set();
         this.hoverPreview = null;
         this.contextMenu = null;
+        this.searchKeyword = "";
+        this.searchMatches = null; // Set of matching CSV relative paths, null means no active search
 
         this.injectStyles();
         this.createWidget();
@@ -991,7 +1011,8 @@ class HezlPromptWidget {
             name: name || `文本框${String(this._boxCounter).padStart(2, '0')}`,
             text: '',
             bar_separator: ', ',
-            solo: false
+            solo: false,
+            disabled: false
         };
     }
 
@@ -1028,7 +1049,9 @@ class HezlPromptWidget {
             <div class="hezl-prompt-top" id="hezl-prompt-top">
                 <div class="hezl-prompt-sidebar" id="hezl-prompt-sidebar">
                     <div class="hezl-section-title">
-                        <span>分类目录</span>
+                        <div class="hezl-sidebar-actions-left">
+                            <button class="hezl-btn small" id="hezl-search-prompts" title="搜索词组">🔍️</button>
+                        </div>
                         <div class="hezl-sidebar-actions">
                             <button class="hezl-btn small" id="hezl-expand-all" title="展开全部">⏬️</button>
                             <button class="hezl-btn small" id="hezl-collapse-all" title="收起全部">⏭️</button>
@@ -1078,14 +1101,22 @@ class HezlPromptWidget {
                 this.loadFolderStructure();
             });
         }
-        
+
         const addRootBtn = this.container.querySelector('#hezl-add-root-folder');
         if (addRootBtn) {
             addRootBtn.addEventListener('click', () => {
                 this.showAddFolderModal('');
             });
         }
-        
+
+        // Search prompts button: open modal and filter folder tree
+        const searchBtn = this.container.querySelector('#hezl-search-prompts');
+        if (searchBtn) {
+            searchBtn.addEventListener('click', () => {
+                this.showSearchPromptsModal();
+            });
+        }
+
         // Feature 2: Expand all / Collapse all
         const expandAllBtn = this.container.querySelector('#hezl-expand-all');
         if (expandAllBtn) {
@@ -1209,12 +1240,54 @@ class HezlPromptWidget {
     async loadFolderStructure() {
         try {
             this.folderStructure = await this.safeFetchJson('/hezl_prompt/get_structure');
-            this.renderFolderTree();
+            // Re-apply active search after refreshing structure
+            if (this.searchKeyword) {
+                await this._applySearch(this.searchKeyword);
+            } else {
+                this.searchMatches = null;
+                this.renderFolderTree();
+            }
             if (this.getTotalSelectedCount() > 0) {
                 this.updateFolderCounts();
             }
         } catch (error) {
             console.error('Failed to load folder structure:', error);
+        }
+    }
+
+    async _applySearch(keyword) {
+        const trimmed = keyword.trim();
+        if (!trimmed) {
+            this.searchKeyword = "";
+            this.searchMatches = null;
+            this.renderFolderTree();
+            return;
+        }
+        try {
+            const result = await this.safeFetchJson(`/hezl_prompt/search_prompts?keyword=${encodeURIComponent(trimmed)}`);
+            this.searchKeyword = trimmed;
+            // Normalize paths to forward slashes so they match the tree paths on Windows
+            this.searchMatches = new Set((result.matches || []).map(p => p.replace(/\\/g, '/')));
+            // Auto-expand all folders when filtering so matches are visible
+            this._expandAllFromStructure();
+            this.renderFolderTree();
+        } catch (error) {
+            console.error('Failed to search prompts:', error);
+            alert('搜索失败: ' + error.message);
+        }
+    }
+
+    _expandAllFromStructure() {
+        const walk = (nodes) => {
+            for (const node of nodes || []) {
+                if (node.type === 'folder') {
+                    this.expandedFolders.add(node.path);
+                    walk(node.children);
+                }
+            }
+        };
+        if (this.folderStructure && this.folderStructure.default) {
+            walk(this.folderStructure.default.children);
         }
     }
     
@@ -1434,11 +1507,36 @@ class HezlPromptWidget {
 
     renderBars() {
         let html = '';
+        const replaceAllConnected = this._isReplaceAllConnected();
         this.items.forEach((item, barIndex) => {
             const label = this.getBarLabel(barIndex);
-            const isSelected = this.selectedBarIndex === barIndex ? 'selected-bar' : '';
-            const soloClass = item.solo ? 'solo-active' : '';
             const soloBtnClass = item.solo ? 'solo-btn-on' : '';
+
+            // 计算禁用状态(红色边框). 优先级: 红 > 黄 > 绿.
+            let isDisabled = false;
+            if (replaceAllConnected) {
+                // 需求4:"输入全部替换"连接时,所有条目都红色
+                isDisabled = true;
+            } else if (item.type === 'textbox') {
+                // 需求2+3:文本框手动禁用 或 输入接口已连接
+                isDisabled = item.disabled || this._isTextboxConnected(item);
+            } else {
+                // 需求5:词组栏所有词组都禁用时红色(空栏不红)
+                const prompts = item.prompts || [];
+                isDisabled = prompts.length > 0 && prompts.every(p => item.disabled[p.id]);
+            }
+
+            // 优先级: 红(disabled-active) > 黄(solo-active) > 绿(selected-bar)
+            // 黄/红默认 1px,选中状态叠加 selected-bar 时变为 2px
+            let borderClass = '';
+            if (isDisabled) {
+                borderClass = 'disabled-active';
+            } else if (item.solo) {
+                borderClass = 'solo-active';
+            }
+            if (this.selectedBarIndex === barIndex) {
+                borderClass = (borderClass ? borderClass + ' ' : '') + 'selected-bar';
+            }
 
             // Common header (draggable for reorder). Per-type action buttons
             // are injected into .hezl-bar-actions-left / .hezl-bar-actions-right.
@@ -1448,9 +1546,12 @@ class HezlPromptWidget {
 
             if (item.type === 'textbox') {
                 // Textbox: no 移除全部/全部禁用/全部启用. Other features same as bar.
+                const disableBtnClass = item.disabled ? 'danger' : 'warning';
+                const disableBtnText = item.disabled ? '启用' : '禁用';
                 leftActions = `
                     <span class="hezl-bar-label" data-bar="${barIndex}" title="双击重命名">${label}</span>
                     <button class="hezl-btn small hezl-bar-rename-btn" data-bar="${barIndex}" title="重命名">重命名</button>
+                    <button class="hezl-btn small ${disableBtnClass} hezl-bar-disable-btn" data-bar="${barIndex}" title="${item.disabled ? '启用文本框' : '禁用文本框,禁用后文本不输出'}">${disableBtnText}</button>
                 `;
                 rightActions = `
                     <button class="hezl-btn small hezl-bar-separator-btn" data-bar="${barIndex}" title="间隔符号设置">间隔符号</button>
@@ -1510,7 +1611,7 @@ class HezlPromptWidget {
             }
 
             html += `
-                <div class="hezl-bar-section ${isSelected} ${soloClass}" data-bar-index="${barIndex}">
+                <div class="hezl-bar-section ${borderClass}" data-bar-index="${barIndex}">
                     <div class="hezl-bar-header" draggable="true" data-bar-index="${barIndex}">
                         <div class="hezl-bar-actions-left">${leftActions}</div>
                         <div class="hezl-bar-actions-right">${rightActions}</div>
@@ -1577,6 +1678,20 @@ class HezlPromptWidget {
                 e.stopPropagation();
                 const barIndex = parseInt(btn.dataset.bar);
                 this.toggleSolo(barIndex);
+            });
+        });
+
+        // Textbox disable/enable toggle button (需求2)
+        this.barsContainer.querySelectorAll('.hezl-bar-disable-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const barIndex = parseInt(btn.dataset.bar);
+                const item = this.items[barIndex];
+                if (item && item.type === 'textbox') {
+                    item.disabled = !item.disabled;
+                    this.renderBars();
+                    this.updateOutput();
+                }
             });
         });
 
@@ -2201,54 +2316,82 @@ class HezlPromptWidget {
 
     renderFolderTree() {
         if (!this.folderStructure) return;
-        
+
+        // When a search is active, filter the tree to show only folders/csv files
+        // that contain at least one matching prompt.
+        const matches = this.searchMatches;
+        const isSearchActive = matches !== null;
+
         const renderNode = (node, indent = 0) => {
             let html = '';
-            
+
             if (node.type === 'folder') {
-                const hasChildren = node.children && node.children.length > 0;
                 const isExpanded = this.expandedFolders.has(node.path);
-                const toggleIcon = hasChildren ? (isExpanded ? '▼' : '▶') : '';
                 const totalCount = this.calculateFolderCounts(node);
                 const countBadge = totalCount > 0 ? `<span class="hezl-folder-count" data-path="${node.path}" title="点击取消选择">${totalCount}</span>` : '';
                 const isSelected = this.currentFolder === node.path ? 'selected' : '';
-                
+
+                // Filter children first so we know whether this folder has visible descendants
+                let childrenHtml = '';
+                let visibleChildCount = 0;
+                if (node.children && node.children.length > 0) {
+                    for (const child of node.children) {
+                        const childHtml = renderNode(child, indent + 1);
+                        if (childHtml) {
+                            childrenHtml += childHtml;
+                            visibleChildCount++;
+                        }
+                    }
+                }
+
+                // In search mode, hide folders that have no matching CSV under them
+                if (isSearchActive && visibleChildCount === 0) {
+                    return '';
+                }
+
+                const hasVisibleChildren = visibleChildCount > 0;
+                const toggleIcon = hasVisibleChildren ? (isExpanded ? '▼' : '▶') : '';
+
                 html += `<div class="hezl-folder-item ${isSelected}" data-path="${node.path}" data-type="folder" style="padding-left: ${indent * 12 + 4}px">
                     <span class="hezl-tree-toggle" data-path="${node.path}">${toggleIcon}</span>
-                    <span class="hezl-folder-icon">${hasChildren ? (isExpanded ? '📂' : '📁') : '📁'}</span>
+                    <span class="hezl-folder-icon">${hasVisibleChildren ? (isExpanded ? '📂' : '📁') : '📁'}</span>
                     <span class="hezl-folder-name">${node.name}</span>
                     ${countBadge}
                 </div>`;
-                
-                if (hasChildren) {
-                    const childrenHtml = node.children.map(child => renderNode(child, indent + 1)).join('');
+
+                if (hasVisibleChildren) {
                     const collapsedClass = isExpanded ? '' : 'collapsed';
                     html += `<div class="hezl-folder-children ${collapsedClass}" data-parent="${node.path}">${childrenHtml}</div>`;
                 }
             } else if (node.type === 'csv') {
+                const normalizedPath = (node.path || '').replace(/\\/g, '/');
+                if (isSearchActive && !matches.has(normalizedPath)) {
+                    return '';
+                }
                 const count = this.folderSelectedCounts[node.path] || 0;
                 const countBadge = count > 0 ? `<span class="hezl-folder-count" data-path="${node.path}" title="点击取消选择">${count}</span>` : '';
                 const isSelected = this.currentFolder === node.path ? 'selected' : '';
-                
-                html += `<div class="hezl-folder-item ${isSelected}" data-path="${node.path}" data-type="csv" style="padding-left: ${indent * 12 + 4}px">
+                const matchClass = isSearchActive ? 'search-match' : '';
+
+                html += `<div class="hezl-folder-item ${isSelected} ${matchClass}" data-path="${node.path}" data-type="csv" style="padding-left: ${indent * 12 + 4}px">
                     <span class="hezl-tree-toggle"></span>
                     <span class="hezl-folder-icon">📄</span>
                     <span class="hezl-folder-name">${node.name}</span>
                     ${countBadge}
                 </div>`;
             }
-            
+
             return html;
         };
-        
+
         let treeHtml = '';
-        
+
         if (this.folderStructure.default) {
             for (const child of this.folderStructure.default.children || []) {
                 treeHtml += renderNode(child, 0);
             }
         }
-        
+
         this.folderTree.innerHTML = treeHtml;
         
         this.folderTree.querySelectorAll('.hezl-tree-toggle').forEach(toggle => {
@@ -2472,17 +2615,22 @@ class HezlPromptWidget {
         }
 
         let html = '';
+        const searchKeyword = (this.searchKeyword || '').toLowerCase();
         for (let index = 0; index < this.promptsData.length; index++) {
             const prompt = this.promptsData[index];
             const count = this.getPromptCountInBars(prompt.title);
             const escapedTitle = this.escapeHtml(prompt.title);
             const escapedSource = this.escapeHtml(prompt.source || this.currentFolder);
             const isSelected = count > 0 ? 'selected' : '';
+            const isSearchMatch = searchKeyword && (
+                (prompt.title || '').toLowerCase().includes(searchKeyword) ||
+                (prompt.content || '').toLowerCase().includes(searchKeyword)
+            ) ? 'search-match' : '';
             const countBadge = count > 0
                 ? `<span class="hezl-prompt-count-badge" data-prompt-title="${escapedTitle}" data-prompt-source="${escapedSource}" data-count="${count}">${count}</span>`
                 : '';
             html += `
-                <div class="hezl-prompt-item-wrapper ${isSelected}"
+                <div class="hezl-prompt-item-wrapper ${isSelected} ${isSearchMatch}"
                      data-title="${escapedTitle}"
                      data-folder="${this.currentFolder}"
                      data-source="${escapedSource}"
@@ -3498,6 +3646,28 @@ class HezlPromptWidget {
         return `${baseName}${n}`;
     }
 
+    // 检测"输入全部替换"输入接口是否已连接 (需求4)
+    _isReplaceAllConnected() {
+        if (!this.node || !this.node.inputs) return false;
+        for (const inp of this.node.inputs) {
+            if (inp && inp.name === '输入全部替换' && inp.link != null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // 检测指定文本框的同名输入接口是否已连接 (需求3)
+    _isTextboxConnected(item) {
+        if (!this.node || !this.node.inputs || !item || item.type !== 'textbox') return false;
+        for (const inp of this.node.inputs) {
+            if (inp && inp.type === 'STRING' && inp.name === item.name && inp.link != null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     // Dynamic INPUT slots.
     // Slot 0 is always "输入全部替换": when an external STRING connects here,
     // the "输出全部" output returns ONLY the external string (replacing all).
@@ -3697,7 +3867,67 @@ class HezlPromptWidget {
             }
         });
     }
-    
+
+    showSearchPromptsModal() {
+        const modal = document.createElement('div');
+        modal.className = 'hezl-modal';
+        const initialValue = this.searchKeyword || '';
+        modal.innerHTML = `
+            <div class="hezl-modal-content">
+                <div class="hezl-modal-header">搜索词组</div>
+                <div class="hezl-form-group">
+                    <label class="hezl-form-label">关键词（匹配标题或内容）</label>
+                    <input type="text" class="hezl-form-input" id="hezl-search-keyword" placeholder="输入关键词" value="${this.escapeHtml(initialValue)}">
+                </div>
+                <div class="hezl-modal-actions">
+                    <button class="hezl-btn" id="hezl-modal-cancel">取消</button>
+                    <button class="hezl-btn" id="hezl-modal-clear">清空</button>
+                    <button class="hezl-btn success" id="hezl-modal-search">确认</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        const input = modal.querySelector('#hezl-search-keyword');
+        input.focus();
+        input.select();
+
+        const close = () => modal.remove();
+
+        modal.querySelector('#hezl-modal-cancel').addEventListener('click', close);
+
+        modal.querySelector('#hezl-modal-clear').addEventListener('click', async () => {
+            this.searchKeyword = '';
+            this.searchMatches = null;
+            this.renderFolderTree();
+            close();
+        });
+
+        modal.querySelector('#hezl-modal-search').addEventListener('click', async () => {
+            const keyword = input.value;
+            close();
+            await this._applySearch(keyword);
+        });
+
+        input.addEventListener('keydown', async (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const keyword = input.value;
+                close();
+                await this._applySearch(keyword);
+            } else if (e.key === 'Escape') {
+                close();
+            }
+        });
+
+        modal.addEventListener('mousedown', (e) => {
+            if (!e.target.closest('.hezl-modal-content')) {
+                close();
+            }
+        });
+    }
+
     showCreateCsvModal(folderPath = null) {
         if (folderPath) {
             this.currentFolder = folderPath;
@@ -4201,6 +4431,7 @@ app.registerExtension({
                 }
                 
                 const hezlWidget = new HezlPromptWidget(this, 'selected_prompts', {}, app);
+                this.hezlWidget = hezlWidget; // 供 onConnectionsChange 访问
                 
                 this.addDOMWidget('hezl_prompt_ui', 'hezl_prompt', hezlWidget.container, {
                     getValue: () => {
@@ -4275,6 +4506,7 @@ app.registerExtension({
                                 } else {
                                     // textbox
                                     if (item.text === undefined) item.text = '';
+                                    if (item.disabled === undefined) item.disabled = false;
                                 }
                             }
 
@@ -4296,6 +4528,17 @@ app.registerExtension({
                     }
                 });
                 
+                return result;
+            };
+
+            // 检测输入连接变化,更新边框颜色 (需求3+4)
+            const origOnConnectionsChange = nodeType.prototype.onConnectionsChange;
+            nodeType.prototype.onConnectionsChange = function(type, index, connected, link_info, ioSlot) {
+                const result = origOnConnectionsChange?.apply(this, arguments);
+                // type === 1 表示输入侧 (LiteGraph.INPUT)
+                if (type === 1 && this.hezlWidget) {
+                    this.hezlWidget.renderBars();
+                }
                 return result;
             };
         }

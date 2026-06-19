@@ -37,6 +37,12 @@ async def get_prompts(request):
     prompts = data_manager.get_prompts_in_folder(folder_path)
     return web.json_response(prompts)
 
+@routes.get("/hezl_prompt/search_prompts")
+async def search_prompts(request):
+    keyword = request.rel_url.query.get("keyword", "")
+    matches = data_manager.search_prompts(keyword)
+    return web.json_response({"matches": list(matches)})
+
 @routes.post("/hezl_prompt/add_folder")
 async def add_folder(request):
     data = await request.json()

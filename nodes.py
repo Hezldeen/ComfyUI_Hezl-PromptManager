@@ -56,6 +56,8 @@ def _resolve_item_value(item, name, kwargs):
     ``text`` field is used.
     """
     if item.get("type") == "textbox":
+        if item.get("disabled", False):  # 手动禁用:输出空字符串
+            return ""
         connected = kwargs.get(name)
         if connected not in (None, ""):
             return str(connected)
