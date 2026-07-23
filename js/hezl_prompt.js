@@ -419,6 +419,107 @@ const HEZL_PROMPT_CSS = `
     transform: scale(0.85);
 }
 
+/* 词组单词选取按钮 "." */
+.hezl-word-select-btn {
+    width: 14px;
+    height: 14px;
+    border: none;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.12);
+    color: #ddd;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: bold;
+    line-height: 1;
+    margin: 0 4px;
+    order: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: background 0.15s, transform 0.1s;
+}
+
+.hezl-word-select-btn:hover {
+    background: rgba(255, 255, 255, 0.28);
+}
+
+.hezl-word-select-btn:active {
+    transform: scale(0.9);
+}
+
+/* 有禁用单词时按钮变黄提示 */
+.hezl-word-select-btn.has-disabled-words {
+    background: #f1c40f;
+    color: #1a1a1a;
+}
+
+.hezl-word-select-btn.has-disabled-words:hover {
+    background: #d4ac0d;
+}
+
+/* 单词列表项 */
+.hezl-word-list {
+    max-height: 50vh;
+    overflow-y: auto;
+    margin-bottom: 12px;
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 6px;
+    background: #1a1a1a;
+}
+
+.hezl-word-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.hezl-word-item:hover {
+    background: #333;
+}
+
+.hezl-word-item input[type="checkbox"] {
+    cursor: pointer;
+}
+
+.hezl-word-text {
+    flex: 1;
+    min-width: 0;
+    word-break: break-all;
+}
+
+.hezl-word-copy-btn {
+    flex-shrink: 0;
+    background: none;
+    border: 1px solid #555;
+    color: #aaa;
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+
+.hezl-word-copy-btn:hover {
+    color: #fff;
+    border-color: #27ae60;
+}
+
+.hezl-word-copy-btn.copied {
+    color: #27ae60;
+    border-color: #27ae60;
+}
+
+.hezl-word-item.disabled-word {
+    color: #e74c3c;
+    text-decoration: line-through;
+}
+
 .hezl-toolbar {
     display: flex;
     gap: 6px;
@@ -504,6 +605,70 @@ const HEZL_PROMPT_CSS = `
     overflow-y: auto;
 }
 
+/* 轻量下拉小弹窗(锚定到触发元素) */
+.hezl-popover {
+    position: fixed;
+    background: #2a2a2a;
+    border: 1px solid #555;
+    border-radius: 6px;
+    padding: 10px;
+    z-index: 10001;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.6);
+    min-width: 200px;
+    max-width: 340px;
+    max-height: 70vh;
+    overflow-y: auto;
+    color: #ddd;
+    font-size: 13px;
+}
+
+.hezl-popover-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #eee;
+}
+
+.hezl-popover-close {
+    background: none;
+    border: none;
+    color: #aaa;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    padding: 0 4px;
+}
+
+.hezl-popover-close:hover {
+    color: #fff;
+}
+
+.hezl-popover-toolbar {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.hezl-popover-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+    justify-content: flex-end;
+}
+
+.hezl-popover .hezl-form-input,
+.hezl-popover .hezl-form-textarea {
+    box-sizing: border-box;
+}
+
+.hezl-popover .hezl-form-textarea {
+    width: 100%;
+    min-height: 64px;
+    resize: vertical;
+}
+
 .hezl-modal-header {
     font-size: 18px;
     font-weight: bold;
@@ -573,23 +738,51 @@ const HEZL_PROMPT_CSS = `
     color: #aaa;
     padding: 4px 6px;
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    gap: 4px;
     position: sticky;
     top: 0;
     background: #1a1a1a;
     z-index: 2;
 }
 
+.hezl-sidebar-row {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
 .hezl-sidebar-actions {
     display: flex;
     gap: 2px;
-    margin-left: auto;
 }
 
-.hezl-sidebar-actions-left {
-    display: flex;
-    gap: 2px;
+.hezl-section-title::after {
+    content: '';
+    display: block;
+    height: 1px;
+    background: #333;
+    margin: 4px -6px 0;
+}
+
+.hezl-search-input {
+    width: 100%;
+    min-width: 0;
+    padding: 3px 6px;
+    font-size: 11px;
+    border: 1px solid #444;
+    border-radius: 3px;
+    background: #111;
+    color: #ddd;
+    outline: none;
+}
+
+.hezl-search-input:focus {
+    border-color: #27ae60;
+}
+
+.hezl-search-input::placeholder {
+    color: #666;
 }
 
 .hezl-sidebar-actions .hezl-btn {
@@ -998,6 +1191,7 @@ class HezlPromptWidget {
             prompts: [],
             weights: {},
             disabled: {},
+            disabledWords: {}, // {promptId: [被禁用的单词,...]} 默认空(全开启)
             prompt_separator: ', ',
             bar_separator: ', ',
             solo: false
@@ -1049,14 +1243,16 @@ class HezlPromptWidget {
             <div class="hezl-prompt-top" id="hezl-prompt-top">
                 <div class="hezl-prompt-sidebar" id="hezl-prompt-sidebar">
                     <div class="hezl-section-title">
-                        <div class="hezl-sidebar-actions-left">
-                            <button class="hezl-btn small" id="hezl-search-prompts" title="搜索词组">🔍️</button>
+                        <div class="hezl-sidebar-row">
+                            <input type="text" class="hezl-search-input" id="hezl-search-input" placeholder="搜索词组..." title="输入关键词实时筛选(匹配标题或内容)">
                         </div>
-                        <div class="hezl-sidebar-actions">
-                            <button class="hezl-btn small" id="hezl-expand-all" title="展开全部">⏬️</button>
-                            <button class="hezl-btn small" id="hezl-collapse-all" title="收起全部">⏭️</button>
-                            <button class="hezl-btn small" id="hezl-add-root-folder" title="在根目录csv文件夹下创建文件夹">+📁</button>
-                            <button class="hezl-btn small" id="hezl-refresh" title="刷新">🔄</button>
+                        <div class="hezl-sidebar-row">
+                            <div class="hezl-sidebar-actions">
+                                <button class="hezl-btn small" id="hezl-refresh" title="刷新">🔄</button>
+                                <button class="hezl-btn small" id="hezl-expand-all" title="展开全部">⏬️</button>
+                                <button class="hezl-btn small" id="hezl-collapse-all" title="收起全部">⏏️</button>
+                                <button class="hezl-btn small" id="hezl-add-root-folder" title="在根目录csv文件夹下创建文件夹">+📁</button>
+                            </div>
                         </div>
                     </div>
                     <div class="hezl-folder-tree" id="hezl-folder-tree"></div>
@@ -1109,11 +1305,23 @@ class HezlPromptWidget {
             });
         }
 
-        // Search prompts button: open modal and filter folder tree
-        const searchBtn = this.container.querySelector('#hezl-search-prompts');
-        if (searchBtn) {
-            searchBtn.addEventListener('click', () => {
-                this.showSearchPromptsModal();
+        // 搜索输入栏: 输入即实时筛选词组(匹配标题或内容),清空则恢复全部
+        const searchInput = this.container.querySelector('#hezl-search-input');
+        if (searchInput) {
+            let searchTimer = null;
+            searchInput.addEventListener('input', () => {
+                clearTimeout(searchTimer);
+                const val = searchInput.value;
+                searchTimer = setTimeout(() => {
+                    this._applySearch(val);
+                }, 300);
+            });
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    searchInput.value = '';
+                    this._applySearch('');
+                    searchInput.blur();
+                }
             });
         }
 
@@ -1234,6 +1442,124 @@ class HezlPromptWidget {
             return JSON.parse(text);
         } catch (e) {
             throw new Error(`JSON parse error: ${e.message}. Response: ${text.substring(0, 200)}`);
+        }
+    }
+
+    // 将弹窗内容定位到当前节点所在区域的中心(而非整个屏幕中心).
+    // 在 document.body.appendChild(modal) 之后调用.
+    _positionModalOverNode(modal) {
+        const apply = () => {
+            if (!modal || !modal.isConnected || !this.container) return;
+            const rect = this.container.getBoundingClientRect();
+            // 节点不可见时,保持默认的屏幕居中(由 flex 实现)
+            if (!rect.width || !rect.height) return;
+            const content = modal.querySelector('.hezl-modal-content');
+            if (!content) return;
+            let cx = rect.left + rect.width / 2;
+            let cy = rect.top + rect.height / 2;
+            const cw = content.offsetWidth || 440;
+            const ch = content.offsetHeight || 240;
+            // 钳制到视口范围内,避免弹窗超出屏幕
+            cx = Math.max(cw / 2 + 8, Math.min(cx, window.innerWidth - cw / 2 - 8));
+            cy = Math.max(ch / 2 + 8, Math.min(cy, window.innerHeight - ch / 2 - 8));
+            // 用 fixed 定位: 始终相对视口,不受祖先 transform 影响
+            content.style.position = 'fixed';
+            content.style.left = cx + 'px';
+            content.style.top = cy + 'px';
+            content.style.transform = 'translate(-50%, -50%)';
+            content.style.margin = '0';
+        };
+        apply();
+        // 布局完成后再校正一次,避免初始测量不准
+        requestAnimationFrame(apply);
+    }
+
+    // 在锚点元素(或坐标 [x,y])附近弹出轻量下拉小窗口,返回该 popover 元素.
+    _showPopover(anchor, innerHTML) {
+        this._closePopover();
+        const popover = document.createElement('div');
+        popover.className = 'hezl-popover';
+        popover.innerHTML = innerHTML;
+        document.body.appendChild(popover);
+
+        // 计算锚点位置
+        let rect;
+        if (anchor && typeof anchor.getBoundingClientRect === 'function') {
+            rect = anchor.getBoundingClientRect();
+        } else if (Array.isArray(anchor)) {
+            rect = { left: anchor[0], top: anchor[1], width: 0, height: 0, right: anchor[0], bottom: anchor[1] };
+        } else {
+            rect = { left: window.innerWidth / 2, top: window.innerHeight / 2, width: 0, height: 0, right: 0, bottom: 0 };
+        }
+        const place = () => {
+            const pr = popover.getBoundingClientRect();
+            let left = rect.left;
+            let top = rect.bottom + 4;
+            if (left + pr.width > window.innerWidth - 8) left = window.innerWidth - pr.width - 8;
+            if (left < 8) left = 8;
+            if (top + pr.height > window.innerHeight - 8) {
+                const above = rect.top - pr.height - 4;
+                top = above > 8 ? above : Math.max(8, window.innerHeight - pr.height - 8);
+            }
+            popover.style.left = left + 'px';
+            popover.style.top = top + 'px';
+        };
+        place();
+        requestAnimationFrame(place);
+
+        this._activePopover = popover;
+        // 点击外部关闭(下一帧绑定,避免触发本次点击)
+        setTimeout(() => {
+            this._popoverOutsideHandler = (e) => {
+                if (this._activePopover && !this._activePopover.contains(e.target)) {
+                    this._closePopover();
+                }
+            };
+            document.addEventListener('mousedown', this._popoverOutsideHandler, true);
+        }, 0);
+
+        // 顶部可拖拽移动整个小弹窗
+        const header = popover.querySelector('.hezl-popover-header');
+        if (header) {
+            header.style.cursor = 'move';
+            header.addEventListener('mousedown', (e) => {
+                if (e.button !== 0) return;
+                if (e.target.closest('.hezl-popover-close')) return; // 关闭按钮不触发拖拽
+                e.preventDefault();
+                const startX = e.clientX;
+                const startY = e.clientY;
+                const pr = popover.getBoundingClientRect();
+                const origLeft = pr.left;
+                const origTop = pr.top;
+                popover.style.userSelect = 'none';
+                const onMove = (ev) => {
+                    let nl = origLeft + (ev.clientX - startX);
+                    let nt = origTop + (ev.clientY - startY);
+                    nl = Math.max(0, Math.min(nl, window.innerWidth - popover.offsetWidth));
+                    nt = Math.max(0, Math.min(nt, window.innerHeight - popover.offsetHeight));
+                    popover.style.left = nl + 'px';
+                    popover.style.top = nt + 'px';
+                };
+                const onUp = () => {
+                    popover.style.userSelect = '';
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onUp);
+                };
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+            });
+        }
+        return popover;
+    }
+
+    _closePopover() {
+        if (this._popoverOutsideHandler) {
+            document.removeEventListener('mousedown', this._popoverOutsideHandler, true);
+            this._popoverOutsideHandler = null;
+        }
+        if (this._activePopover) {
+            this._activePopover.remove();
+            this._activePopover = null;
         }
     }
 
@@ -1459,7 +1785,7 @@ class HezlPromptWidget {
             </div>
         `;
 
-        document.body.appendChild(modal);
+        document.body.appendChild(modal); this._positionModalOverNode(modal);
 
         modal.querySelector('#hezl-modal-cancel').addEventListener('click', () => {
             modal.remove();
@@ -1590,6 +1916,10 @@ class HezlPromptWidget {
                         const pid = prompt.id;
                         const weight = item.weights[pid] || 1.0;
                         const isDisabled = item.disabled[pid] || false;
+                        const dw = item.disabledWords[pid] || [];
+                        const hasDisabledWords = Array.isArray(dw) && dw.length > 0;
+                        const wordBtnClass = hasDisabledWords ? 'has-disabled-words' : '';
+                        const wordBtnTitle = hasDisabledWords ? `已禁用 ${dw.length} 个单词,点击管理` : '选取单词(按","拆分,可禁用不输出的单词)';
                         itemsHtml += `
                             <div class="hezl-preview-item ${isDisabled ? 'disabled' : ''}" data-bar-index="${barIndex}" data-prompt-index="${promptIndex}" data-prompt-id="${pid}" draggable="true">
                                 <span class="hezl-preview-text" title="${this.escapeHtml(prompt.content)}">${this.escapeHtml(prompt.title)}</span>
@@ -1598,6 +1928,7 @@ class HezlPromptWidget {
                                     <span class="hezl-weight-value">${weight.toFixed(2)}</span>
                                     <button class="hezl-weight-btn" data-action="increase">+</button>
                                 </div>
+                                <button class="hezl-word-select-btn ${wordBtnClass}" data-bar-index="${barIndex}" data-prompt-index="${promptIndex}" data-prompt-id="${pid}" title="${wordBtnTitle}">.</button>
                                 <button class="hezl-remove-btn" data-bar-index="${barIndex}" data-prompt-index="${promptIndex}" data-prompt-id="${pid}">✕</button>
                             </div>
                         `;
@@ -1850,7 +2181,8 @@ class HezlPromptWidget {
             // Click to toggle disabled
             item.addEventListener('click', (e) => {
                 if (!e.target.classList.contains('hezl-weight-btn') &&
-                    !e.target.classList.contains('hezl-remove-btn')) {
+                    !e.target.classList.contains('hezl-remove-btn') &&
+                    !e.target.classList.contains('hezl-word-select-btn')) {
                     const prompt = this.bars[barIndex].prompts[promptIndex];
                     if (prompt) {
                         const pid = prompt.id;
@@ -2021,6 +2353,135 @@ class HezlPromptWidget {
                 this.removePromptFromBarByIndex(barIndex, promptIndex);
             });
         });
+
+        // 词组单词选取按钮 "."
+        this.barsContainer.querySelectorAll('.hezl-word-select-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const barIndex = parseInt(btn.dataset.barIndex);
+                const promptIndex = parseInt(btn.dataset.promptIndex);
+                this.showWordSelector(btn, barIndex, promptIndex);
+            });
+        });
+    }
+
+    // 单词选取下拉: 在"."按钮位置弹出,实时开关单词(取消勾选则不输出).
+    showWordSelector(anchorBtn, barIndex, promptIndex) {
+        const bar = this.bars[barIndex];
+        if (!bar) return;
+        const prompt = bar.prompts[promptIndex];
+        if (!prompt) return;
+        const pid = prompt.id;
+        const content = prompt.content || '';
+
+        // 按 "," 拆分并去重,保留出现顺序
+        const seen = new Set();
+        const words = [];
+        for (const raw of String(content).split(',')) {
+            const w = raw.trim();
+            if (!w || seen.has(w)) continue;
+            seen.add(w);
+            words.push(w);
+        }
+
+        if (words.length === 0) {
+            alert('此词组内容为空或没有可拆分的单词');
+            return;
+        }
+
+        const listHtml = words.map(w => {
+            const enabled = !(bar.disabledWords[pid] || []).includes(w);
+            return `<div class="hezl-word-item ${enabled ? '' : 'disabled-word'}" data-word="${this.escapeHtml(w)}">
+                <input type="checkbox" ${enabled ? 'checked' : ''}>
+                <span class="hezl-word-text">${this.escapeHtml(w)}</span>
+                <button class="hezl-word-copy-btn" title="复制">⧉</button>
+            </div>`;
+        }).join('');
+
+        const popover = this._showPopover(anchorBtn, `
+            <div class="hezl-popover-header">
+                <span>选取单词</span>
+                <button class="hezl-popover-close" id="hezl-word-close">✕</button>
+            </div>
+            <div class="hezl-form-label">勾选输出,取消则不输出</div>
+            <div class="hezl-popover-toolbar">
+                <button class="hezl-btn small" id="hezl-word-all-on">全选</button>
+                <button class="hezl-btn small warning" id="hezl-word-all-off">全不选</button>
+            </div>
+            <div class="hezl-word-list">${listHtml}</div>
+        `);
+
+        popover.querySelector('#hezl-word-close').addEventListener('click', () => this._closePopover());
+
+        // 切换单个单词(实时写回). batch=true 时不立即重绘,由调用方统一刷新.
+        const toggleWord = (itemEl, forceState, batch) => {
+            const cb = itemEl.querySelector('input[type="checkbox"]');
+            if (forceState !== undefined) cb.checked = forceState;
+            const word = itemEl.dataset.word;
+            const arr = bar.disabledWords[pid] || [];
+            const idx = arr.indexOf(word);
+            if (cb.checked) {
+                itemEl.classList.remove('disabled-word');
+                if (idx !== -1) arr.splice(idx, 1);
+            } else {
+                itemEl.classList.add('disabled-word');
+                if (idx === -1) arr.push(word);
+            }
+            bar.disabledWords[pid] = arr;
+            if (!batch) {
+                this.renderBars();
+                this.updateOutput();
+            }
+        };
+
+        popover.querySelectorAll('.hezl-word-item').forEach(itemEl => {
+            const cb = itemEl.querySelector('input[type="checkbox"]');
+            itemEl.addEventListener('click', (e) => {
+                if (e.target.tagName === 'INPUT') return; // checkbox 自身会触发下面那个监听
+                if (e.target.closest('.hezl-word-copy-btn')) return; // 复制按钮单独处理
+                cb.checked = !cb.checked; // 点击行时手动翻转复选框
+                toggleWord(itemEl);
+            });
+            cb.addEventListener('click', () => toggleWord(itemEl));
+
+            // 复制按钮: 复制该单词到剪贴板
+            const copyBtn = itemEl.querySelector('.hezl-word-copy-btn');
+            if (copyBtn) {
+                copyBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    const word = itemEl.dataset.word;
+                    try {
+                        await navigator.clipboard.writeText(word);
+                    } catch {
+                        // 回退方案: 临时 textarea
+                        const ta = document.createElement('textarea');
+                        ta.value = word;
+                        document.body.appendChild(ta);
+                        ta.select();
+                        try { document.execCommand('copy'); } catch {}
+                        ta.remove();
+                    }
+                    const orig = copyBtn.textContent;
+                    copyBtn.textContent = '✓';
+                    copyBtn.classList.add('copied');
+                    setTimeout(() => {
+                        copyBtn.textContent = orig;
+                        copyBtn.classList.remove('copied');
+                    }, 1200);
+                });
+            }
+        });
+
+        popover.querySelector('#hezl-word-all-on').addEventListener('click', () => {
+            popover.querySelectorAll('.hezl-word-item').forEach(el => toggleWord(el, true, true));
+            this.renderBars();
+            this.updateOutput();
+        });
+        popover.querySelector('#hezl-word-all-off').addEventListener('click', () => {
+            popover.querySelectorAll('.hezl-word-item').forEach(el => toggleWord(el, false, true));
+            this.renderBars();
+            this.updateOutput();
+        });
     }
 
     // ==================== Feature 6: Move prompt between bars ====================
@@ -2036,11 +2497,13 @@ class HezlPromptWidget {
         const pid = prompt.id;
         const weight = fromBar.weights[pid] || 1.0;
         const isDisabled = fromBar.disabled[pid] || false;
+        const disabledWords = fromBar.disabledWords[pid] ? fromBar.disabledWords[pid].slice() : [];
 
         // Remove from source
         fromBar.prompts.splice(fromPromptIndex, 1);
         delete fromBar.weights[pid];
         delete fromBar.disabled[pid];
+        delete fromBar.disabledWords[pid];
 
         // Adjust target index if same bar and after source
         if (fromBarIndex === toBarIndex && fromPromptIndex < toPromptIndex) {
@@ -2051,6 +2514,7 @@ class HezlPromptWidget {
         toBar.prompts.splice(toPromptIndex, 0, prompt);
         toBar.weights[pid] = weight;
         toBar.disabled[pid] = isDisabled;
+        toBar.disabledWords[pid] = disabledWords;
 
         this.renderBars();
         this.updateFolderCounts();
@@ -2067,6 +2531,7 @@ class HezlPromptWidget {
             bar.prompts = [];
             bar.weights = {};
             bar.disabled = {};
+            bar.disabledWords = {};
             this.renderBars();
             this.updateFolderCounts();
             this.renderPromptList();
@@ -2103,6 +2568,7 @@ class HezlPromptWidget {
             bar.prompts.splice(index, 1);
             delete bar.weights[pid];
             delete bar.disabled[pid];
+            delete bar.disabledWords[pid];
             this.renderBars();
             this.updateFolderCounts();
             this.renderPromptList();
@@ -2117,6 +2583,7 @@ class HezlPromptWidget {
         bar.prompts.splice(promptIndex, 1);
         delete bar.weights[pid];
         delete bar.disabled[pid];
+        delete bar.disabledWords[pid];
         this.renderBars();
         this.updateFolderCounts();
         this.renderPromptList();
@@ -2452,10 +2919,10 @@ class HezlPromptWidget {
                 <div class="hezl-context-menu-item" data-action="delete-csv">删除</div>
             `;
         } else if (type === 'prompt') {
-            // Feature 1: Add "在⬆位置添加新词组" and "在⬇位置添加新词组"
+            // Feature 1: Add "在⬅添词组" and "在➡添词组"
             menuHtml = `
-                <div class="hezl-context-menu-item" data-action="add-prompt-above">在⬆位置添加新词组</div>
-                <div class="hezl-context-menu-item" data-action="add-prompt-below">在⬇位置添加新词组</div>
+                <div class="hezl-context-menu-item" data-action="add-prompt-above">在⬅添词组</div>
+                <div class="hezl-context-menu-item" data-action="add-prompt-below">在➡添词组</div>
                 <div class="hezl-context-menu-item" data-action="edit-prompt">编辑</div>
                 <div class="hezl-context-menu-item" data-action="delete-prompt">删除</div>
             `;
@@ -2498,11 +2965,11 @@ class HezlPromptWidget {
                         this.deleteFolder(path);
                     }
                 } else if (action === 'add-prompt') {
-                    this.showAddPromptModal(path);
+                    this.showAddPromptModal(path, [e.clientX, e.clientY]);
                 } else if (action === 'add-prompt-above') {
-                    this.showAddPromptAtPosition(extra.source || path, extra.index, 'above');
+                    this.showAddPromptAtPosition(extra.source || path, extra.index, 'above', [e.clientX, e.clientY]);
                 } else if (action === 'add-prompt-below') {
-                    this.showAddPromptAtPosition(extra.source || path, extra.index, 'below');
+                    this.showAddPromptAtPosition(extra.source || path, extra.index, 'below', [e.clientX, e.clientY]);
                 } else if (action === 'rename-csv') {
                     this.showRenameCsvModal(path);
                 } else if (action === 'move-csv') {
@@ -2512,7 +2979,7 @@ class HezlPromptWidget {
                         this.deleteCsvFile(path);
                     }
                 } else if (action === 'edit-prompt') {
-                    this.showEditPromptModal(extra.title, extra.source || path);
+                    this.showEditPromptPopover(extra.title, extra.source || path, [e.clientX, e.clientY]);
                 } else if (action === 'delete-prompt') {
                     this.deletePrompt(extra.title, extra.source || path);
                 } else if (action === 'locate-folder') {
@@ -2654,6 +3121,15 @@ class HezlPromptWidget {
             content.addEventListener('click', () => {
                 this.togglePromptSelection(wrapper.dataset.title);
             });
+
+            // 编辑按钮: 在按钮位置下拉出编辑小窗
+            const editBtn = wrapper.querySelector('.hezl-prompt-edit-btn');
+            if (editBtn) {
+                editBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.showEditPromptPopover(wrapper.dataset.title, wrapper.dataset.source, editBtn);
+                });
+            }
 
             // Count badge hover/click behavior
             const countBadge = wrapper.querySelector('.hezl-prompt-count-badge');
@@ -2800,51 +3276,51 @@ class HezlPromptWidget {
 
     }
     
-    async showEditPromptModal(promptTitle, promptSource = null) {
+    async showEditPromptPopover(promptTitle, promptSource = null, anchor = null) {
         const prompt = this.promptsData.find(p => {
             const source = p.source || this.currentFolder;
             const targetSource = promptSource || this.currentFolder;
             return p.title === promptTitle && source === targetSource;
         });
         if (!prompt) return;
-        
+
         const folder = promptSource || this.currentFolder;
-        
-        const modal = document.createElement('div');
-        modal.className = 'hezl-modal';
-        modal.innerHTML = `
-            <div class="hezl-modal-content">
-                <div class="hezl-modal-header">编辑词组</div>
-                <div class="hezl-form-group">
-                    <label class="hezl-form-label">标题</label>
-                    <input type="text" class="hezl-form-input" id="hezl-edit-title" value="${this.escapeHtml(prompt.title)}">
-                </div>
-                <div class="hezl-form-group">
-                    <label class="hezl-form-label">内容</label>
-                    <textarea class="hezl-form-textarea" id="hezl-edit-content">${this.escapeHtml(prompt.content)}</textarea>
-                </div>
-                <div class="hezl-modal-actions">
-                    <button class="hezl-btn" id="hezl-modal-cancel">取消</button>
-                    <button class="hezl-btn success" id="hezl-modal-save">保存</button>
-                </div>
+
+        const popover = this._showPopover(anchor, `
+            <div class="hezl-popover-header">
+                <span>编辑词组</span>
+                <button class="hezl-popover-close" id="hezl-edit-close">✕</button>
             </div>
-        `;
-        
-        document.body.appendChild(modal);
-        
-        modal.querySelector('#hezl-modal-cancel').addEventListener('click', () => {
-            modal.remove();
-        });
-        
-        modal.querySelector('#hezl-modal-save').addEventListener('click', async () => {
-            const newTitle = modal.querySelector('#hezl-edit-title').value.trim();
-            const newContent = modal.querySelector('#hezl-edit-content').value.trim();
-            
+            <div class="hezl-form-group">
+                <label class="hezl-form-label">标题</label>
+                <input type="text" class="hezl-form-input" id="hezl-edit-title" value="${this.escapeHtml(prompt.title)}">
+            </div>
+            <div class="hezl-form-group">
+                <label class="hezl-form-label">内容</label>
+                <textarea class="hezl-form-textarea" id="hezl-edit-content">${this.escapeHtml(prompt.content)}</textarea>
+            </div>
+            <div class="hezl-popover-actions">
+                <button class="hezl-btn" id="hezl-edit-cancel">取消</button>
+                <button class="hezl-btn success" id="hezl-edit-save">保存</button>
+            </div>
+        `);
+
+        const titleInput = popover.querySelector('#hezl-edit-title');
+        const contentInput = popover.querySelector('#hezl-edit-content');
+        setTimeout(() => titleInput && titleInput.focus(), 0);
+
+        popover.querySelector('#hezl-edit-close').addEventListener('click', () => this._closePopover());
+        popover.querySelector('#hezl-edit-cancel').addEventListener('click', () => this._closePopover());
+
+        popover.querySelector('#hezl-edit-save').addEventListener('click', async () => {
+            const newTitle = titleInput.value.trim();
+            const newContent = contentInput.value.trim();
+
             if (!newTitle) {
                 alert('请输入标题');
                 return;
             }
-            
+
             if (newTitle !== prompt.title) {
                 const existingPrompt = this.promptsData.find(p => p.title === newTitle && p.title !== promptTitle);
                 if (existingPrompt) {
@@ -2852,7 +3328,7 @@ class HezlPromptWidget {
                     return;
                 }
             }
-            
+
             try {
                 const result = await this.safeFetchJson('/hezl_prompt/update_prompt', {
                     method: 'POST',
@@ -2864,7 +3340,7 @@ class HezlPromptWidget {
                         new_content: newContent
                     })
                 });
-                
+
                 if (result.success) {
                     // Update in all bars
                     for (const bar of this.items) {
@@ -2878,8 +3354,8 @@ class HezlPromptWidget {
                     }
                     this.renderBars();
                     this.updateOutput();
-                    
-                    modal.remove();
+
+                    this._closePopover();
                     const nextType = folder && folder.toLowerCase().endsWith('.csv') ? 'csv' : this.currentFolderType;
                     await this.selectFolder(folder, nextType);
                 } else {
@@ -2889,15 +3365,9 @@ class HezlPromptWidget {
                 alert('保存失败: ' + error.message);
             }
         });
-        
-        modal.addEventListener('mousedown', (e) => {
-            if (!e.target.closest('.hezl-modal-content')) {
-                modal.remove();
-            }
-        });
     }
     
-    async showAddPromptModal(csvPath = null) {
+    async showAddPromptModal(csvPath = null, anchor = null) {
         if (csvPath) {
             this.currentFolder = csvPath;
             this.currentFolderType = 'csv';
@@ -2906,50 +3376,50 @@ class HezlPromptWidget {
             alert('请选中csv文件');
             return;
         }
-        
+
         const folder = this.currentFolder;
-        
-        const modal = document.createElement('div');
-        modal.className = 'hezl-modal';
-        modal.innerHTML = `
-            <div class="hezl-modal-content">
-                <div class="hezl-modal-header">添加词组</div>
-                <div class="hezl-form-group">
-                    <label class="hezl-form-label">标题</label>
-                    <input type="text" class="hezl-form-input" id="hezl-add-title" placeholder="输入标题">
-                </div>
-                <div class="hezl-form-group">
-                    <label class="hezl-form-label">内容</label>
-                    <textarea class="hezl-form-textarea" id="hezl-add-content" placeholder="输入内容"></textarea>
-                </div>
-                <div class="hezl-modal-actions">
-                    <button class="hezl-btn" id="hezl-modal-cancel">取消</button>
-                    <button class="hezl-btn success" id="hezl-modal-save">保存</button>
-                </div>
+
+        const popover = this._showPopover(anchor, `
+            <div class="hezl-popover-header">
+                <span>添加词组</span>
+                <button class="hezl-popover-close" id="hezl-add-close">✕</button>
             </div>
-        `;
-        
-        document.body.appendChild(modal);
-        
-        modal.querySelector('#hezl-modal-cancel').addEventListener('click', () => {
-            modal.remove();
-        });
-        
-        modal.querySelector('#hezl-modal-save').addEventListener('click', async () => {
-            const newTitle = modal.querySelector('#hezl-add-title').value.trim();
-            const newContent = modal.querySelector('#hezl-add-content').value.trim();
-            
+            <div class="hezl-form-group">
+                <label class="hezl-form-label">标题</label>
+                <input type="text" class="hezl-form-input" id="hezl-add-title" placeholder="输入标题">
+            </div>
+            <div class="hezl-form-group">
+                <label class="hezl-form-label">内容</label>
+                <textarea class="hezl-form-textarea" id="hezl-add-content" placeholder="输入内容"></textarea>
+            </div>
+            <div class="hezl-popover-actions">
+                <button class="hezl-btn" id="hezl-add-cancel">取消</button>
+                <button class="hezl-btn success" id="hezl-add-save">保存</button>
+            </div>
+        `);
+
+        const titleInput = popover.querySelector('#hezl-add-title');
+        const contentInput = popover.querySelector('#hezl-add-content');
+        setTimeout(() => titleInput && titleInput.focus(), 0);
+
+        popover.querySelector('#hezl-add-close').addEventListener('click', () => this._closePopover());
+        popover.querySelector('#hezl-add-cancel').addEventListener('click', () => this._closePopover());
+
+        popover.querySelector('#hezl-add-save').addEventListener('click', async () => {
+            const newTitle = titleInput.value.trim();
+            const newContent = contentInput.value.trim();
+
             if (!newTitle) {
                 alert('请输入标题');
                 return;
             }
-            
+
             const existingPrompt = this.promptsData.find(p => p.title === newTitle);
             if (existingPrompt) {
                 alert('已存在同名词组，请使用不同的标题');
                 return;
             }
-            
+
             try {
                 const result = await this.safeFetchJson('/hezl_prompt/add_prompt', {
                     method: 'POST',
@@ -2960,9 +3430,9 @@ class HezlPromptWidget {
                         content: newContent
                     })
                 });
-                
+
                 if (result.success) {
-                    modal.remove();
+                    this._closePopover();
                     await this.selectFolder(folder, this.currentFolderType);
                 } else {
                     alert('保存失败: ' + result.error);
@@ -2971,52 +3441,47 @@ class HezlPromptWidget {
                 alert('保存失败: ' + error.message);
             }
         });
-        
-        modal.addEventListener('mousedown', (e) => {
-            if (!e.target.closest('.hezl-modal-content')) {
-                modal.remove();
-            }
-        });
     }
 
     // Feature 1: Add prompt at specific position (above/below)
-    async showAddPromptAtPosition(csvPath, index, position) {
+    async showAddPromptAtPosition(csvPath, index, position, anchor = null) {
         if (!csvPath || csvPath.toLowerCase().endsWith('.csv') === false) {
             alert('请选中csv文件');
             return;
         }
 
         const folder = csvPath;
+        const headerText = position === 'above' ? '在⬅添词组' : '在➡添词组';
 
-        const modal = document.createElement('div');
-        modal.className = 'hezl-modal';
-        modal.innerHTML = `
-            <div class="hezl-modal-content">
-                <div class="hezl-modal-header">${position === 'above' ? '在上方添加新词组' : '在下方添加新词组'}</div>
-                <div class="hezl-form-group">
-                    <label class="hezl-form-label">标题</label>
-                    <input type="text" class="hezl-form-input" id="hezl-add-title" placeholder="输入标题">
-                </div>
-                <div class="hezl-form-group">
-                    <label class="hezl-form-label">内容</label>
-                    <textarea class="hezl-form-textarea" id="hezl-add-content" placeholder="输入内容"></textarea>
-                </div>
-                <div class="hezl-modal-actions">
-                    <button class="hezl-btn" id="hezl-modal-cancel">取消</button>
-                    <button class="hezl-btn success" id="hezl-modal-save">保存</button>
-                </div>
+        const popover = this._showPopover(anchor, `
+            <div class="hezl-popover-header">
+                <span>${headerText}</span>
+                <button class="hezl-popover-close" id="hezl-add-close">✕</button>
             </div>
-        `;
+            <div class="hezl-form-group">
+                <label class="hezl-form-label">标题</label>
+                <input type="text" class="hezl-form-input" id="hezl-add-title" placeholder="输入标题">
+            </div>
+            <div class="hezl-form-group">
+                <label class="hezl-form-label">内容</label>
+                <textarea class="hezl-form-textarea" id="hezl-add-content" placeholder="输入内容"></textarea>
+            </div>
+            <div class="hezl-popover-actions">
+                <button class="hezl-btn" id="hezl-add-cancel">取消</button>
+                <button class="hezl-btn success" id="hezl-add-save">保存</button>
+            </div>
+        `);
 
-        document.body.appendChild(modal);
+        const titleInput = popover.querySelector('#hezl-add-title');
+        const contentInput = popover.querySelector('#hezl-add-content');
+        setTimeout(() => titleInput && titleInput.focus(), 0);
 
-        modal.querySelector('#hezl-modal-cancel').addEventListener('click', () => {
-            modal.remove();
-        });
+        popover.querySelector('#hezl-add-close').addEventListener('click', () => this._closePopover());
+        popover.querySelector('#hezl-add-cancel').addEventListener('click', () => this._closePopover());
 
-        modal.querySelector('#hezl-modal-save').addEventListener('click', async () => {
-            const newTitle = modal.querySelector('#hezl-add-title').value.trim();
-            const newContent = modal.querySelector('#hezl-add-content').value.trim();
+        popover.querySelector('#hezl-add-save').addEventListener('click', async () => {
+            const newTitle = titleInput.value.trim();
+            const newContent = contentInput.value.trim();
 
             if (!newTitle) {
                 alert('请输入标题');
@@ -3043,19 +3508,13 @@ class HezlPromptWidget {
                 });
 
                 if (result.success) {
-                    modal.remove();
+                    this._closePopover();
                     await this.selectFolder(folder, 'csv');
                 } else {
                     alert('保存失败: ' + result.error);
                 }
             } catch (error) {
                 alert('保存失败: ' + error.message);
-            }
-        });
-
-        modal.addEventListener('mousedown', (e) => {
-            if (!e.target.closest('.hezl-modal-content')) {
-                modal.remove();
             }
         });
     }
@@ -3126,7 +3585,7 @@ class HezlPromptWidget {
             </div>
         `;
 
-        document.body.appendChild(modal);
+        document.body.appendChild(modal); this._positionModalOverNode(modal);
 
         // Select all toggle
         const selectAllCb = modal.querySelector('#hezl-batch-select-all');
@@ -3230,7 +3689,7 @@ class HezlPromptWidget {
 
         if (addBtn) {
             addBtn.addEventListener('click', () => {
-                this.showAddPromptModal(this.currentFolder);
+                this.showAddPromptModal(this.currentFolder, addBtn);
             });
         }
         if (batchMoveBtn) {
@@ -3284,7 +3743,7 @@ class HezlPromptWidget {
             </div>
         `;
 
-        document.body.appendChild(modal);
+        document.body.appendChild(modal); this._positionModalOverNode(modal);
 
         const selectAllCb = modal.querySelector('#hezl-batch-delete-select-all');
         const promptCbs = modal.querySelectorAll('.hezl-batch-delete-cb');
@@ -3440,6 +3899,7 @@ class HezlPromptWidget {
         bar.prompts.push(newPrompt);
         bar.weights[id] = 1.0;
         bar.disabled[id] = false;
+        bar.disabledWords[id] = []; // 默认全部单词开启
 
         this.updateFolderCounts();
         this.renderPromptList();
@@ -3486,7 +3946,7 @@ class HezlPromptWidget {
     }
 
     async deletePrompt(promptTitle, promptSource) {
-        if (!promptTitle || !promptSource) return;
+        if (promptTitle == null || !promptSource) return;
         if (!confirm('确定删除该词组吗?')) {
             return;
         }
@@ -3822,7 +4282,7 @@ class HezlPromptWidget {
             </div>
         `;
         
-        document.body.appendChild(modal);
+        document.body.appendChild(modal); this._positionModalOverNode(modal);
         
         modal.querySelector('#hezl-modal-cancel').addEventListener('click', () => {
             modal.remove();
@@ -3868,66 +4328,6 @@ class HezlPromptWidget {
         });
     }
 
-    showSearchPromptsModal() {
-        const modal = document.createElement('div');
-        modal.className = 'hezl-modal';
-        const initialValue = this.searchKeyword || '';
-        modal.innerHTML = `
-            <div class="hezl-modal-content">
-                <div class="hezl-modal-header">搜索词组</div>
-                <div class="hezl-form-group">
-                    <label class="hezl-form-label">关键词（匹配标题或内容）</label>
-                    <input type="text" class="hezl-form-input" id="hezl-search-keyword" placeholder="输入关键词" value="${this.escapeHtml(initialValue)}">
-                </div>
-                <div class="hezl-modal-actions">
-                    <button class="hezl-btn" id="hezl-modal-cancel">取消</button>
-                    <button class="hezl-btn" id="hezl-modal-clear">清空</button>
-                    <button class="hezl-btn success" id="hezl-modal-search">确认</button>
-                </div>
-            </div>
-        `;
-
-        document.body.appendChild(modal);
-
-        const input = modal.querySelector('#hezl-search-keyword');
-        input.focus();
-        input.select();
-
-        const close = () => modal.remove();
-
-        modal.querySelector('#hezl-modal-cancel').addEventListener('click', close);
-
-        modal.querySelector('#hezl-modal-clear').addEventListener('click', async () => {
-            this.searchKeyword = '';
-            this.searchMatches = null;
-            this.renderFolderTree();
-            close();
-        });
-
-        modal.querySelector('#hezl-modal-search').addEventListener('click', async () => {
-            const keyword = input.value;
-            close();
-            await this._applySearch(keyword);
-        });
-
-        input.addEventListener('keydown', async (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                const keyword = input.value;
-                close();
-                await this._applySearch(keyword);
-            } else if (e.key === 'Escape') {
-                close();
-            }
-        });
-
-        modal.addEventListener('mousedown', (e) => {
-            if (!e.target.closest('.hezl-modal-content')) {
-                close();
-            }
-        });
-    }
-
     showCreateCsvModal(folderPath = null) {
         if (folderPath) {
             this.currentFolder = folderPath;
@@ -3954,7 +4354,7 @@ class HezlPromptWidget {
             </div>
         `;
         
-        document.body.appendChild(modal);
+        document.body.appendChild(modal); this._positionModalOverNode(modal);
         
         modal.querySelector('#hezl-modal-cancel').addEventListener('click', () => {
             modal.remove();
@@ -4021,7 +4421,7 @@ class HezlPromptWidget {
             </div>
         `;
         
-        document.body.appendChild(modal);
+        document.body.appendChild(modal); this._positionModalOverNode(modal);
         
         modal.querySelector('#hezl-modal-cancel').addEventListener('click', () => {
             modal.remove();
@@ -4129,7 +4529,7 @@ class HezlPromptWidget {
             </div>
         `;
 
-        document.body.appendChild(modal);
+        document.body.appendChild(modal); this._positionModalOverNode(modal);
 
         modal.querySelector('#hezl-modal-cancel').addEventListener('click', () => {
             modal.remove();
@@ -4223,7 +4623,7 @@ class HezlPromptWidget {
             </div>
         `;
 
-        document.body.appendChild(modal);
+        document.body.appendChild(modal); this._positionModalOverNode(modal);
 
         modal.querySelector('#hezl-modal-cancel').addEventListener('click', () => {
             modal.remove();
@@ -4487,22 +4887,28 @@ app.registerExtension({
                                     if (!item.prompts) item.prompts = [];
                                     if (!item.weights) item.weights = {};
                                     if (!item.disabled) item.disabled = {};
+                                    if (!item.disabledWords) item.disabledWords = {};
                                     if (item.prompt_separator === undefined) item.prompt_separator = ', ';
                                     const newWeights = {};
                                     const newDisabled = {};
+                                    const newDisabledWords = {};
                                     for (const p of item.prompts) {
                                         const oldKey = (p.id !== undefined && p.id !== null) ? p.id : p.title;
                                         const oldWeight = item.weights[oldKey] !== undefined ? item.weights[oldKey]
                                                         : (item.weights[p.title] !== undefined ? item.weights[p.title] : 1.0);
                                         const oldDisabled = item.disabled[oldKey] !== undefined ? item.disabled[oldKey]
                                                           : (item.disabled[p.title] !== undefined ? item.disabled[p.title] : false);
+                                        const oldDisabledWords = (item.disabledWords[oldKey] !== undefined ? item.disabledWords[oldKey]
+                                                          : (item.disabledWords[p.title] !== undefined ? item.disabledWords[p.title] : null));
                                         const newId = nextPromptId++;
                                         p.id = newId;
                                         newWeights[newId] = oldWeight;
                                         newDisabled[newId] = oldDisabled;
+                                        newDisabledWords[newId] = Array.isArray(oldDisabledWords) ? oldDisabledWords.slice() : [];
                                     }
                                     item.weights = newWeights;
                                     item.disabled = newDisabled;
+                                    item.disabledWords = newDisabledWords;
                                 } else {
                                     // textbox
                                     if (item.text === undefined) item.text = '';

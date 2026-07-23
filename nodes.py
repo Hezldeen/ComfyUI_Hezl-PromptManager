@@ -67,6 +67,7 @@ def _resolve_item_value(item, name, kwargs):
     prompts = item.get("prompts", [])
     weights = item.get("weights", {})
     disabled = item.get("disabled", {})
+    disabled_words_map = item.get("disabledWords", {})
     separator = item.get("prompt_separator", ", ")
     parts = []
     for p in prompts:
@@ -74,6 +75,13 @@ def _resolve_item_value(item, name, kwargs):
         pid = p.get("id", p.get("title", ""))  # key by id, fallback to title
         if disabled.get(str(pid), False):
             continue
+        # 单词级开关: 按 "," 拆分内容,过滤掉被禁用的单词后重新拼接.
+        dw = disabled_words_map.get(str(pid), [])
+        if dw:
+            dw_set = set(str(w).strip() for w in dw if str(w).strip())
+            words = [w.strip() for w in str(content).split(",")]
+            words = [w for w in words if w and w not in dw_set]
+            content = separator.join(words)
         weight = weights.get(str(pid), 1.0)
         if weight != 1.0:
             parts.append(f"({content}:{weight:.2f})")
