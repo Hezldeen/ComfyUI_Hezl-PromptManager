@@ -1917,10 +1917,8 @@ class HezlPromptWidget {
     savePresetAs(barIndex, anchor) {
         const bar = this.items[barIndex];
         if (!bar || bar.type !== 'bar') return;
-        if ((bar.prompts || []).length === 0) {
-            alert('当前词组栏为空,无内容可保存为预设');
-            return;
-        }
+        // 允许空词组栏保存预设: 快照 prompts 为 [] 是合法的, 应用时会清空目标词组栏
+        // (可用于保存"空预设"以快速清空其他词组栏, 或保存间隔符号配置).
         const popover = this._showPopover(anchor, `
             <div class="hezl-popover-header">
                 <span>保存预设</span>
