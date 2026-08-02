@@ -1,5 +1,6 @@
 from .nodes import HezlPromptNode
 from .csv_data import CSVDataManager
+from .csv_data import PresetManager
 
 WEB_DIRECTORY = "./js"
 
@@ -23,6 +24,11 @@ csv_dir = os.path.join(os.path.dirname(__file__), "csv")
 os.makedirs(csv_dir, exist_ok=True)
 
 data_manager = CSVDataManager(csv_dir)
+
+# 词组栏预设存储目录 (SavePreset), 与 csv 目录同级.
+preset_dir = os.path.join(os.path.dirname(__file__), "SavePreset")
+os.makedirs(preset_dir, exist_ok=True)
+preset_manager = PresetManager(preset_dir)
 
 routes = PromptServer.instance.routes
 
@@ -152,4 +158,40 @@ async def reorder_prompts(request):
         folder=data.get("folder", ""),
         prompts=data.get("prompts", [])
     )
+    return web.json_response(result)
+
+# ==================== 词组栏预设 (SavePreset) ====================
+
+@routes.get("/hezl_prompt/list_presets")
+async def list_presets(request):
+    return web.json_response({"presets": preset_manager.list_presets()})
+
+@routes.get("/hezl_prompt/get_preset")
+async def get_preset(request):
+    name = request.rel_url.query.get("name", "")
+    result = preset_manager.get_preset(name)
+    return web.json_response(result)
+
+@routes.post("/hezl_prompt/save_preset")
+async def save_preset(request):
+    data = await request.json()
+    result = preset_manager.save_preset(
+        name=data.get("name", ""),
+        data=data.get("data", {})
+    )
+    return web.json_response(result)
+
+@routes.post("/hezl_prompt/rename_preset")
+async def rename_preset(request):
+    data = await request.json()
+    result = preset_manager.rename_preset(
+        old_name=data.get("old_name", ""),
+        new_name=data.get("new_name", "")
+    )
+    return web.json_response(result)
+
+@routes.post("/hezl_prompt/delete_preset")
+async def delete_preset(request):
+    data = await request.json()
+    result = preset_manager.delete_preset(name=data.get("name", ""))
     return web.json_response(result)

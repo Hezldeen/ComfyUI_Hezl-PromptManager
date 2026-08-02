@@ -10,3 +10,4 @@ __pycache__/
 # 数据文件
 csv/01_Hezl/
 csv/09_模型提示词/
+SavePreset/*

@@ -23,7 +23,8 @@ const HEZL_PROMPT_CSS = `
 
 .hezl-prompt-bottom {
     flex: 0 0 auto;
-    min-height: 80px;
+    min-height: 0;
+    box-sizing: border-box;
     padding: 8px;
     overflow-y: auto;
     background: #252525;
@@ -1044,6 +1045,60 @@ const HEZL_PROMPT_CSS = `
     gap: 4px;
 }
 
+/* 头部按钮组:用细竖线分割不同功能组(名称+编辑 | 预设 | 启停开关) */
+.hezl-bar-sep {
+    width: 1px;
+    height: 16px;
+    background: #444;
+    margin: 0 4px;
+    flex-shrink: 0;
+}
+
+/* 图标按钮:正方形小按钮,容纳单个 emoji 图标 */
+.hezl-icon-btn {
+    flex-shrink: 0;
+    min-width: 22px;
+    height: 22px;
+    padding: 2px 5px;
+    line-height: 1;
+    font-size: 12px;
+    border-radius: 3px;
+    border: none;
+    cursor: pointer;
+    color: #fff;
+    background: #3498db;
+    transition: background 0.15s, filter 0.15s;
+}
+.hezl-icon-btn:hover { background: #2980b9; }
+.hezl-icon-btn.danger { background: #e74c3c; }
+.hezl-icon-btn.danger:hover { background: #c0392b; }
+.hezl-icon-btn.success { background: #27ae60; }
+.hezl-icon-btn.success:hover { background: #219a52; }
+.hezl-icon-btn.warning { background: #f39c12; }
+.hezl-icon-btn.warning:hover { background: #d68910; }
+.hezl-icon-btn.solo-btn-on { background: #f1c40f; color: #1a1a1a; }
+.hezl-icon-btn.solo-btn-on:hover { background: #d4ac0d; }
+
+/* 预设下拉 <select> */
+.hezl-preset-select {
+    height: 22px;
+    width: 140px;
+    font-size: 10px;
+    background: #1a1a1a;
+    color: #ddd;
+    border: 1px solid #3a3a3a;
+    border-radius: 3px;
+    padding: 0 4px;
+    cursor: pointer;
+    box-sizing: border-box;
+    outline: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.hezl-preset-select:hover { border-color: #3498db; }
+.hezl-preset-select:focus { border-color: #3498db; }
+
 /* Selected bar: 绿色,始终 2px */
 .hezl-bar-section.selected-bar {
     border: 2px solid #27ae60;
@@ -1144,6 +1199,13 @@ const HEZL_PROMPT_CSS = `
 .hezl-textbox-input:focus {
     border-color: #3498db;
 }
+
+/* 同名输入接口已连接(接收外部字符): 仅 textarea 边框变红, 整个文本框 bar 不变红.
+   整个文本框 bar 变红仅在该文本框被手动禁用时(由 .disabled-active 控制). */
+.hezl-textbox-input.connected-input {
+    border-color: #e74c3c;
+    background: #2a1a1a;
+}
 `;
 
 class HezlPromptWidget {
@@ -1170,6 +1232,10 @@ class HezlPromptWidget {
         this.contextMenu = null;
         this.searchKeyword = "";
         this.searchMatches = null; // Set of matching CSV relative paths, null means no active search
+        // 预设列表缓存: renderBars 同步阶段直接用此缓存渲染下拉选项, 避免每次渲染都异步
+        // 拉 /list_presets 导致下拉框在 toggle/开关单词等操作时闪烁回占位项.
+        // 仅在 init / 保存 / 重命名 / 删除预设时通过 refreshAllPresetDropdowns 刷新.
+        this._cachedPresets = [];
 
         this.injectStyles();
         this.createWidget();
@@ -1180,6 +1246,8 @@ class HezlPromptWidget {
         // Sync the node's input slots ("输入全部替换" + textbox inputs)
         this.updateNodeInputs();
         this.loadFolderStructure();
+        // 初始化时拉取一次预设列表填充缓存(异步), 之后的 renderBars 同步渲染选项.
+        this.refreshAllPresetDropdowns();
     }
 
     // ---------- item factory helpers ----------
@@ -1194,7 +1262,8 @@ class HezlPromptWidget {
             disabledWords: {}, // {promptId: [被禁用的单词,...]} 默认空(全开启)
             prompt_separator: ', ',
             bar_separator: ', ',
-            solo: false
+            solo: false,
+            appliedPreset: '' // 当前已加载的预设名(仅用于下拉显示);空字符串表示未加载
         };
     }
 
@@ -1374,12 +1443,17 @@ class HezlPromptWidget {
             this.verticalSplitter.addEventListener('mousedown', (e) => {
                 e.preventDefault();
                 const startX = e.clientX;
-                const startWidth = this.sidebar.getBoundingClientRect().width;
+                // 同水平分隔条: 用 offsetWidth (CSS 像素) 并按画布缩放系数换算鼠标位移,
+                // 避免 ComfyUI 画布缩放导致分隔条偏移/无法跟随鼠标.
+                const startWidth = this.sidebar.offsetWidth;
+                const splitterWidth = this.verticalSplitter.offsetWidth;
+                const containerW = this.container.offsetWidth;
+                const rect = this.container.getBoundingClientRect();
+                const scale = (rect.width > 0 && containerW > 0) ? (rect.width / containerW) : 1;
+                const maxWidth = containerW - minRight - splitterWidth;
             const onMove = (moveEvent) => {
-                const containerRect = this.container.getBoundingClientRect();
-                const splitterWidth = this.verticalSplitter.getBoundingClientRect().width;
-                const maxWidth = containerRect.width - minRight - splitterWidth;
-                let newWidth = startWidth + (moveEvent.clientX - startX);
+                const deltaCss = (moveEvent.clientX - startX) / scale;
+                let newWidth = startWidth + deltaCss;
                 newWidth = Math.max(minSidebar, Math.min(maxWidth, newWidth));
                 if (this._splitterRaf) cancelAnimationFrame(this._splitterRaf);
                 this._splitterRaf = requestAnimationFrame(() => {
@@ -1400,17 +1474,25 @@ class HezlPromptWidget {
         }
 
         if (this.horizontalSplitter && this.bottomPanel) {
-            const minBottom = 60;
-            const minTop = 120;
+            // 不设最低高度限制,允许水平分隔条拖动到任意位置.
+            const minBottom = 0;
+            const minTop = 0;
             this.horizontalSplitter.addEventListener('mousedown', (e) => {
                 e.preventDefault();
                 const startY = e.clientY;
-                const startBottom = this.bottomPanel.getBoundingClientRect().height;
+                // 关键: ComfyUI 画布有缩放, 节点 DOM 被 CSS transform 缩放.
+                // getBoundingClientRect() 返回视口坐标(含缩放), 而 flex-basis 是 CSS 未缩放像素.
+                // 必须用 offsetHeight (CSS 像素) 并把鼠标视口位移除以缩放系数, 否则会出现
+                // 抓取瞬间跳变 + 移动速率与缩放成正比的偏移(非 100% 缩放时分隔条无法跟随鼠标).
+                const startBottom = this.bottomPanel.offsetHeight;          // CSS 像素
+                const splitterHeight = this.horizontalSplitter.offsetHeight; // CSS 像素
+                const containerH = this.container.offsetHeight;             // CSS 像素
+                const rect = this.container.getBoundingClientRect();
+                const scale = (rect.height > 0 && containerH > 0) ? (rect.height / containerH) : 1;
+                const maxBottom = containerH - minTop - splitterHeight;
             const onMove = (moveEvent) => {
-                const containerRect = this.container.getBoundingClientRect();
-                const splitterHeight = this.horizontalSplitter.getBoundingClientRect().height;
-                const maxBottom = containerRect.height - minTop - splitterHeight;
-                let newBottom = startBottom - (moveEvent.clientY - startY);
+                const deltaCss = (moveEvent.clientY - startY) / scale; // 视口位移 → CSS 位移
+                let newBottom = startBottom - deltaCss;
                 newBottom = Math.max(minBottom, Math.min(maxBottom, newBottom));
                 if (this._splitterRaf2) cancelAnimationFrame(this._splitterRaf2);
                 this._splitterRaf2 = requestAnimationFrame(() => {
@@ -1752,6 +1834,224 @@ class HezlPromptWidget {
         });
     }
 
+    // ==================== 词组栏预设 (SavePreset) ====================
+
+    // 拉取预设列表并填充所有词组栏的预设下拉框(异步,不阻塞渲染).
+    // 同步构建预设下拉选项 HTML (使用 _cachedPresets).
+    // appliedPreset 对应的 option 标记 selected, 使 renderBars 重建 select 后立即显示
+    // 当前已加载的预设, 无需等待异步请求, 避免 toggle/开关单词等操作时下拉框闪烁回占位项.
+    _presetOptionsHTML(appliedPreset) {
+        const list = Array.isArray(this._cachedPresets) ? this._cachedPresets : [];
+        let opts = '<option value="">预设...</option>';
+        for (const name of list) {
+            const v = this.escapeHtml(name);
+            const sel = (name === appliedPreset) ? ' selected' : '';
+            opts += `<option value="${v}"${sel}>${this.escapeHtml(name)}</option>`;
+        }
+        return opts;
+    }
+
+    async refreshAllPresetDropdowns() {
+        let presets = [];
+        try {
+            const res = await this.safeFetchJson('/hezl_prompt/list_presets');
+            presets = Array.isArray(res.presets) ? res.presets : [];
+        } catch (e) {
+            presets = [];
+        }
+        // 更新缓存. 之后的 renderBars 会同步用缓存渲染; 此处再刷新已有 select 的选项,
+        // 以便保存/重命名/删除预设后立即反映新列表(同时保留各栏的 appliedPreset 选中态).
+        this._cachedPresets = presets;
+        this.barsContainer.querySelectorAll('.hezl-bar-preset-select').forEach(sel => {
+            const barIndex = parseInt(sel.dataset.bar);
+            const bar = this.items[barIndex];
+            const current = (bar && bar.appliedPreset) ? bar.appliedPreset : '';
+            sel.innerHTML = this._presetOptionsHTML(current);
+        });
+    }
+
+    // 应用预设到指定词组栏: 替换其 prompts/weights/disabled/disabledWords/separators,
+    // 并为每个词组重新生成 id,避免与现有词组 id 冲突.
+    async applyPreset(barIndex, name) {
+        const bar = this.items[barIndex];
+        if (!bar || bar.type !== 'bar') return;
+        try {
+            const res = await this.safeFetchJson(`/hezl_prompt/get_preset?name=${encodeURIComponent(name)}`);
+            if (!res.success) {
+                alert('加载预设失败: ' + (res.error || '未知错误'));
+                return;
+            }
+            const data = res.data || {};
+            const newPrompts = Array.isArray(data.prompts) ? data.prompts : [];
+            const newWeights = {};
+            const newDisabled = {};
+            const newDisabledWords = {};
+            // 重新生成 id,建立新键映射
+            newPrompts.forEach(p => {
+                const oldId = p.id;
+                const newId = String(this._nextPromptId++);
+                p.id = newId;
+                newWeights[newId] = (data.weights && data.weights[oldId] != null) ? data.weights[oldId] : 1.0;
+                newDisabled[newId] = !!(data.disabled && data.disabled[oldId]);
+                newDisabledWords[newId] = (data.disabledWords && Array.isArray(data.disabledWords[oldId]))
+                    ? data.disabledWords[oldId].slice() : [];
+            });
+            bar.prompts = newPrompts;
+            bar.weights = newWeights;
+            bar.disabled = newDisabled;
+            bar.disabledWords = newDisabledWords;
+            if (typeof data.prompt_separator === 'string') bar.prompt_separator = data.prompt_separator;
+            if (typeof data.bar_separator === 'string') bar.bar_separator = data.bar_separator;
+            // 记录当前已加载的预设名,供下拉框显示当前选中项.
+            bar.appliedPreset = name;
+            this.renderBars();
+            this.updateFolderCounts();
+            this.renderPromptList();
+            this.updateOutput();
+        } catch (e) {
+            alert('加载预设失败: ' + e.message);
+        }
+    }
+
+    // 保存预设: 弹出名称输入小窗,将当前词组栏内容快照存为 JSON.
+    savePresetAs(barIndex, anchor) {
+        const bar = this.items[barIndex];
+        if (!bar || bar.type !== 'bar') return;
+        if ((bar.prompts || []).length === 0) {
+            alert('当前词组栏为空,无内容可保存为预设');
+            return;
+        }
+        const popover = this._showPopover(anchor, `
+            <div class="hezl-popover-header">
+                <span>保存预设</span>
+                <button class="hezl-popover-close" id="hezl-preset-save-close">✕</button>
+            </div>
+            <div class="hezl-form-group">
+                <label class="hezl-form-label">预设名称</label>
+                <input type="text" class="hezl-form-input" id="hezl-preset-save-name" placeholder="输入预设名称">
+            </div>
+            <div class="hezl-popover-actions">
+                <button class="hezl-btn" id="hezl-preset-save-cancel">取消</button>
+                <button class="hezl-btn success" id="hezl-preset-save-ok">保存</button>
+            </div>
+        `);
+        const nameInput = popover.querySelector('#hezl-preset-save-name');
+        setTimeout(() => nameInput && nameInput.focus(), 0);
+        popover.querySelector('#hezl-preset-save-close').addEventListener('click', () => this._closePopover());
+        popover.querySelector('#hezl-preset-save-cancel').addEventListener('click', () => this._closePopover());
+        const doSave = async () => {
+            const name = (nameInput.value || '').trim();
+            if (!name) { alert('请输入预设名称'); return; }
+            // 构建快照(使用当前 id 作为键)
+            const snapshot = {
+                prompts: (bar.prompts || []).map(p => ({ id: p.id, title: p.title, content: p.content, folder: p.folder, source: p.source })),
+                weights: Object.assign({}, bar.weights || {}),
+                disabled: Object.assign({}, bar.disabled || {}),
+                disabledWords: Object.assign({}, bar.disabledWords || {}),
+                prompt_separator: bar.prompt_separator || ', ',
+                bar_separator: bar.bar_separator || ', '
+            };
+            try {
+                const res = await this.safeFetchJson('/hezl_prompt/save_preset', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name, data: snapshot })
+                });
+                if (res.success) {
+                    this._closePopover();
+                    await this.refreshAllPresetDropdowns();
+                } else {
+                    alert('保存失败: ' + (res.error || '未知错误'));
+                }
+            } catch (e) {
+                alert('保存失败: ' + e.message);
+            }
+        };
+        popover.querySelector('#hezl-preset-save-ok').addEventListener('click', doSave);
+        nameInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); doSave(); }
+            else if (e.key === 'Escape') { this._closePopover(); }
+        });
+    }
+
+    // 重命名预设: 需先在下拉中选择一个预设,再输入新名.
+    renamePreset(selectEl, anchor) {
+        if (!selectEl) return;
+        const oldName = selectEl.value;
+        if (!oldName) {
+            alert('请先在下拉菜单中选择要重命名的预设');
+            return;
+        }
+        const popover = this._showPopover(anchor, `
+            <div class="hezl-popover-header">
+                <span>重命名预设</span>
+                <button class="hezl-popover-close" id="hezl-preset-rename-close">✕</button>
+            </div>
+            <div class="hezl-form-group">
+                <label class="hezl-form-label">新名称</label>
+                <input type="text" class="hezl-form-input" id="hezl-preset-rename-name" value="${this.escapeHtml(oldName)}">
+            </div>
+            <div class="hezl-popover-actions">
+                <button class="hezl-btn" id="hezl-preset-rename-cancel">取消</button>
+                <button class="hezl-btn success" id="hezl-preset-rename-ok">确定</button>
+            </div>
+        `);
+        const nameInput = popover.querySelector('#hezl-preset-rename-name');
+        setTimeout(() => { nameInput && nameInput.focus(); nameInput && nameInput.select(); }, 0);
+        popover.querySelector('#hezl-preset-rename-close').addEventListener('click', () => this._closePopover());
+        popover.querySelector('#hezl-preset-rename-cancel').addEventListener('click', () => this._closePopover());
+        const doRename = async () => {
+            const newName = (nameInput.value || '').trim();
+            if (!newName) { alert('请输入新名称'); return; }
+            if (newName === oldName) { this._closePopover(); return; }
+            try {
+                const res = await this.safeFetchJson('/hezl_prompt/rename_preset', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ old_name: oldName, new_name: newName })
+                });
+                if (res.success) {
+                    this._closePopover();
+                    await this.refreshAllPresetDropdowns();
+                } else {
+                    alert('重命名失败: ' + (res.error || '未知错误'));
+                }
+            } catch (e) {
+                alert('重命名失败: ' + e.message);
+            }
+        };
+        popover.querySelector('#hezl-preset-rename-ok').addEventListener('click', doRename);
+        nameInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); doRename(); }
+            else if (e.key === 'Escape') { this._closePopover(); }
+        });
+    }
+
+    // 删除预设: 需先在下拉中选择一个预设.
+    async deletePreset(selectEl, anchor) {
+        if (!selectEl) return;
+        const name = selectEl.value;
+        if (!name) {
+            alert('请先在下拉菜单中选择要删除的预设');
+            return;
+        }
+        if (!confirm(`确定删除预设 "${name}" 吗?`)) return;
+        try {
+            const res = await this.safeFetchJson('/hezl_prompt/delete_preset', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: name })
+            });
+            if (res.success) {
+                await this.refreshAllPresetDropdowns();
+            } else {
+                alert('删除失败: ' + (res.error || '未知错误'));
+            }
+        } catch (e) {
+            alert('删除失败: ' + e.message);
+        }
+    }
+
     showSeparatorModal(barIndex) {
         const bar = this.bars[barIndex];
         if (!bar) return;
@@ -1844,8 +2144,9 @@ class HezlPromptWidget {
                 // 需求4:"输入全部替换"连接时,所有条目都红色
                 isDisabled = true;
             } else if (item.type === 'textbox') {
-                // 需求2+3:文本框手动禁用 或 输入接口已连接
-                isDisabled = item.disabled || this._isTextboxConnected(item);
+                // 文本框: 整个 bar 变红仅当手动禁用 (replaceAll 已在上方处理).
+                // 同名输入已连接时改为仅 textarea 变红(见下方 connected-input), 整个 bar 不变红.
+                isDisabled = !!item.disabled;
             } else {
                 // 需求5:词组栏所有词组都禁用时红色(空栏不红)
                 const prompts = item.prompts || [];
@@ -1871,39 +2172,54 @@ class HezlPromptWidget {
             let bodyHtml = '';
 
             if (item.type === 'textbox') {
-                // Textbox: no 移除全部/全部禁用/全部启用. Other features same as bar.
-                const disableBtnClass = item.disabled ? 'danger' : 'warning';
-                const disableBtnText = item.disabled ? '启用' : '禁用';
+                // 文本框:名称+✏️ | 启停开关(单个切换) | ⁉️间隔+🟡单独输出+❌️删除
+                // 启用时显示🔴(点击禁用);禁用时显示🟢(点击启用)
+                const isTbDisabled = !!item.disabled;
+                const tbToggleClass = isTbDisabled ? 'success' : 'danger';
+                const tbToggleIcon = isTbDisabled ? '🟢' : '🔴';
+                const tbToggleTitle = isTbDisabled ? '启用文本框' : '禁用文本框,禁用后文本不输出';
                 leftActions = `
                     <span class="hezl-bar-label" data-bar="${barIndex}" title="双击重命名">${label}</span>
-                    <button class="hezl-btn small hezl-bar-rename-btn" data-bar="${barIndex}" title="重命名">重命名</button>
-                    <button class="hezl-btn small ${disableBtnClass} hezl-bar-disable-btn" data-bar="${barIndex}" title="${item.disabled ? '启用文本框' : '禁用文本框,禁用后文本不输出'}">${disableBtnText}</button>
+                    <button class="hezl-icon-btn hezl-bar-rename-btn" data-bar="${barIndex}" title="重命名">✏️</button>
+                    <span class="hezl-bar-sep"></span>
+                    <button class="hezl-icon-btn ${tbToggleClass} hezl-bar-toggle-disable" data-bar="${barIndex}" title="${tbToggleTitle}">${tbToggleIcon}</button>
                 `;
                 rightActions = `
-                    <button class="hezl-btn small hezl-bar-separator-btn" data-bar="${barIndex}" title="间隔符号设置">间隔符号</button>
-                    <button class="hezl-btn small ${soloBtnClass} hezl-bar-solo-btn" data-bar="${barIndex}" title="开启后此文本框单独输出,不参与输出全部">单独输出</button>
-                    <button class="hezl-btn small danger hezl-bar-delete" data-bar="${barIndex}" title="删除文本框">✕</button>
+                    <button class="hezl-icon-btn hezl-bar-separator-btn" data-bar="${barIndex}" title="间隔符号设置">⁉️</button>
+                    <button class="hezl-icon-btn ${soloBtnClass} hezl-bar-solo-btn" data-bar="${barIndex}" title="开启后此文本框单独输出,不参与输出全部">🟡</button>
+                    <button class="hezl-icon-btn danger hezl-bar-delete" data-bar="${barIndex}" title="删除文本框">❌️</button>
                 `;
+                // 同名输入已连接(且未被禁用/非 replaceAll)时, 仅 textarea 变红表示"接收外部字符"
+                const tbConnected = !isDisabled && this._isTextboxConnected(item);
                 bodyHtml = `
                     <div class="hezl-textbox-zone" data-bar-index="${barIndex}">
-                        <textarea class="hezl-textbox-input" data-bar="${barIndex}" placeholder="输入文本,或连接字符串到同名输入接口">${this.escapeHtml(item.text || '')}</textarea>
+                        <textarea class="hezl-textbox-input${tbConnected ? ' connected-input' : ''}" data-bar="${barIndex}" placeholder="输入文本,或连接字符串到同名输入接口">${this.escapeHtml(item.text || '')}</textarea>
                     </div>
                 `;
             } else {
-                // Bar (词组栏): full action set.
+                // 词组栏:名称+✏️ | 预设下拉+📥️+✏️+🗑️ | 🟢/🔴启停开关 | ⁉️间隔+🟡单独输出+❌️删除
+                const prompts = item.prompts || [];
+                // 全部启用时显示🔴(点击全部禁用);存在禁用时显示🟢(点击全部启用)
+                const hasDisabledPrompt = prompts.some(p => item.disabled[p.id]);
+                const toggleClass = hasDisabledPrompt ? 'success' : 'danger';
+                const toggleIcon = hasDisabledPrompt ? '🟢' : '🔴';
+                const toggleTitle = hasDisabledPrompt ? '全部启用' : '全部禁用';
                 leftActions = `
                     <span class="hezl-bar-label" data-bar="${barIndex}" title="双击重命名">${label}</span>
-                    <button class="hezl-btn small hezl-bar-rename-btn" data-bar="${barIndex}" title="重命名词组栏">重命名</button>
-                    <button class="hezl-btn small danger hezl-bar-remove-all" data-bar="${barIndex}">移除全部</button>
-                    <button class="hezl-btn small warning hezl-bar-disable-all" data-bar="${barIndex}">全部禁用</button>
-                    <button class="hezl-btn small success hezl-bar-enable-all" data-bar="${barIndex}">全部启用</button>
+                    <button class="hezl-icon-btn hezl-bar-rename-btn" data-bar="${barIndex}" title="重命名词组栏">✏️</button>
+                    <span class="hezl-bar-sep"></span>
+                    <select class="hezl-preset-select hezl-bar-preset-select" data-bar="${barIndex}" title="预设下拉菜单">${this._presetOptionsHTML(item.appliedPreset || '')}</select>
+                    <button class="hezl-icon-btn success hezl-bar-preset-save" data-bar="${barIndex}" title="保存预设(将当前词组栏内容存为预设)">📥️</button>
+                    <button class="hezl-icon-btn hezl-bar-preset-rename" data-bar="${barIndex}" title="重命名预设">✏️</button>
+                    <button class="hezl-icon-btn danger hezl-bar-preset-delete" data-bar="${barIndex}" title="删除预设">🗑️</button>
+                    <span class="hezl-bar-sep"></span>
+                    <button class="hezl-icon-btn ${toggleClass} hezl-bar-toggle-all" data-bar="${barIndex}" title="${toggleTitle}">${toggleIcon}</button>
                 `;
                 rightActions = `
-                    <button class="hezl-btn small hezl-bar-separator-btn" data-bar="${barIndex}" title="间隔符号设置">间隔符号</button>
-                    <button class="hezl-btn small ${soloBtnClass} hezl-bar-solo-btn" data-bar="${barIndex}" title="开启后此词组栏单独输出,不参与输出全部">单独输出</button>
-                    <button class="hezl-btn small danger hezl-bar-delete" data-bar="${barIndex}" title="删除词组栏">✕</button>
+                    <button class="hezl-icon-btn hezl-bar-separator-btn" data-bar="${barIndex}" title="间隔符号设置">⁉️</button>
+                    <button class="hezl-icon-btn ${soloBtnClass} hezl-bar-solo-btn" data-bar="${barIndex}" title="开启后此词组栏单独输出,不参与输出全部">🟡</button>
+                    <button class="hezl-icon-btn danger hezl-bar-delete" data-bar="${barIndex}" title="删除词组栏">❌️</button>
                 `;
-                const prompts = item.prompts || [];
                 if (prompts.length === 0) {
                     bodyHtml = `<div class="hezl-bar-drop-zone" data-bar-index="${barIndex}">
                         <div class="hezl-preview-container" data-bar-index="${barIndex}">
@@ -1954,34 +2270,25 @@ class HezlPromptWidget {
 
         this.barsContainer.innerHTML = html;
         this.bindBarEvents();
+        // 不再在此调用异步 refreshAllPresetDropdowns(): 下拉选项已在上面通过 _cachedPresets
+        // 同步渲染(含 appliedPreset 的 selected), 避免每次渲染都异步拉取导致下拉框闪烁.
+        // 预设列表仅在 init / 保存 / 重命名 / 删除预设时由 refreshAllPresetDropdowns 刷新缓存.
     }
 
     // Alias used in some call sites.
     renderItems() { this.renderBars(); }
 
     bindBarEvents() {
-        // Bar action buttons
-        this.barsContainer.querySelectorAll('.hezl-bar-remove-all').forEach(btn => {
+        // 词组栏 启停切换按钮: 全启用显🔴(点击全部禁用);存在禁用显🟢(点击全部启用)
+        this.barsContainer.querySelectorAll('.hezl-bar-toggle-all').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const barIndex = parseInt(btn.dataset.bar);
-                this.removeAllPromptsFromBar(barIndex);
-            });
-        });
-
-        this.barsContainer.querySelectorAll('.hezl-bar-disable-all').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const barIndex = parseInt(btn.dataset.bar);
-                this.toggleAllPromptsDisabledInBar(barIndex, true);
-            });
-        });
-
-        this.barsContainer.querySelectorAll('.hezl-bar-enable-all').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const barIndex = parseInt(btn.dataset.bar);
-                this.toggleAllPromptsDisabledInBar(barIndex, false);
+                const bar = this.items[barIndex];
+                if (!bar || bar.type !== 'bar') return;
+                const prompts = bar.prompts || [];
+                const hasDisabled = prompts.some(p => bar.disabled[p.id]);
+                this.toggleAllPromptsDisabledInBar(barIndex, !hasDisabled);
             });
         });
 
@@ -2012,8 +2319,8 @@ class HezlPromptWidget {
             });
         });
 
-        // Textbox disable/enable toggle button (需求2)
-        this.barsContainer.querySelectorAll('.hezl-bar-disable-btn').forEach(btn => {
+        // 文本框 启停切换按钮: 启用显🔴(点击禁用);禁用显🟢(点击启用)
+        this.barsContainer.querySelectorAll('.hezl-bar-toggle-disable').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const barIndex = parseInt(btn.dataset.bar);
@@ -2023,6 +2330,47 @@ class HezlPromptWidget {
                     this.renderBars();
                     this.updateOutput();
                 }
+            });
+        });
+
+        // 词组栏 预设下拉: 选择即应用到当前词组栏(替换内容).
+        // 选中后由 applyPreset 设置 bar.appliedPreset,renderBars 重建 select 后
+        // 由 refreshAllPresetDropdowns 恢复显示当前选中预设(此处不再手动重置 value).
+        this.barsContainer.querySelectorAll('.hezl-bar-preset-select').forEach(sel => {
+            sel.addEventListener('change', (e) => {
+                e.stopPropagation();
+                const barIndex = parseInt(sel.dataset.bar);
+                const name = sel.value;
+                if (name) {
+                    this.applyPreset(barIndex, name);
+                }
+            });
+            // 阻止 select 交互冒泡触发 header 选中/拖拽
+            sel.addEventListener('mousedown', (e) => e.stopPropagation());
+            sel.addEventListener('click', (e) => e.stopPropagation());
+        });
+        // 预设: 保存 / 重命名 / 删除
+        this.barsContainer.querySelectorAll('.hezl-bar-preset-save').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const barIndex = parseInt(btn.dataset.bar);
+                this.savePresetAs(barIndex, btn);
+            });
+        });
+        this.barsContainer.querySelectorAll('.hezl-bar-preset-rename').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const barIndex = parseInt(btn.dataset.bar);
+                const sel = this.barsContainer.querySelector(`.hezl-bar-preset-select[data-bar="${barIndex}"]`);
+                this.renamePreset(sel, btn);
+            });
+        });
+        this.barsContainer.querySelectorAll('.hezl-bar-preset-delete').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const barIndex = parseInt(btn.dataset.bar);
+                const sel = this.barsContainer.querySelector(`.hezl-bar-preset-select[data-bar="${barIndex}"]`);
+                this.deletePreset(sel, btn);
             });
         });
 
@@ -4863,7 +5211,8 @@ app.registerExtension({
                                     disabled: data.disabled || {},
                                     prompt_separator: ', ',
                                     bar_separator: ', ',
-                                    solo: false
+                                    solo: false,
+                                    appliedPreset: ''
                                 }];
                             }
 
@@ -4889,6 +5238,7 @@ app.registerExtension({
                                     if (!item.disabled) item.disabled = {};
                                     if (!item.disabledWords) item.disabledWords = {};
                                     if (item.prompt_separator === undefined) item.prompt_separator = ', ';
+                                    if (item.appliedPreset === undefined) item.appliedPreset = '';
                                     const newWeights = {};
                                     const newDisabled = {};
                                     const newDisabledWords = {};

@@ -1,6 +1,7 @@
 import os
 import csv
 import shutil
+import json
 
 class CSVDataManager:
     def __init__(self, csv_dir):
@@ -439,3 +440,119 @@ class CSVDataManager:
                 except Exception as e:
                     print(f"Error searching CSV {csv_path}: {e}")
         return matches
+
+
+class PresetManager:
+    """Manages 词组栏 presets stored as individual JSON files in a directory.
+
+    Each preset is a snapshot of a bar's configuration (prompts, weights,
+    disabled flags, disabledWords, separators). One file per preset:
+    ``<name>.json`` in ``preset_dir``.
+    """
+
+    # Characters disallowed in preset file names (Windows + cross-platform safe).
+    _INVALID_CHARS = '<>:"/\\|?*'
+
+    def __init__(self, preset_dir):
+        self.preset_dir = preset_dir
+        os.makedirs(self.preset_dir, exist_ok=True)
+
+    def _safe_name(self, name):
+        """Normalize a user-supplied preset name into a safe ``<name>.json`` filename.
+
+        Strips leading/trailing whitespace, removes illegal characters and path
+        separators, collapses dots that would escape the directory, and ensures
+        a ``.json`` extension. Returns None for empty names.
+        """
+        if not name:
+            return None
+        cleaned = str(name).strip()
+        if not cleaned:
+            return None
+        for ch in self._INVALID_CHARS:
+            cleaned = cleaned.replace(ch, '')
+        cleaned = cleaned.replace('\t', '').replace('\n', '').replace('\r', '')
+        # Prevent path traversal / hidden-file tricks.
+        cleaned = cleaned.lstrip('.').lstrip('/').lstrip('\\')
+        cleaned = cleaned.replace('/', '').replace('\\', '')
+        if not cleaned:
+            return None
+        if not cleaned.lower().endswith('.json'):
+            cleaned = cleaned + '.json'
+        return cleaned
+
+    def list_presets(self):
+        """Return a sorted list of preset names (without ``.json`` extension)."""
+        names = []
+        try:
+            for file_name in os.listdir(self.preset_dir):
+                if file_name.lower().endswith('.json') and os.path.isfile(
+                    os.path.join(self.preset_dir, file_name)
+                ):
+                    names.append(file_name[:-5])
+        except Exception as e:
+            print(f"Error listing presets: {e}")
+        names.sort()
+        return names
+
+    def get_preset(self, name):
+        """Read and return a preset dict by name. Returns ``{"success": False}`` on error."""
+        safe = self._safe_name(name)
+        if not safe:
+            return {"success": False, "error": "无效的预设名称"}
+        path = os.path.join(self.preset_dir, safe)
+        if not os.path.isfile(path):
+            return {"success": False, "error": "预设不存在"}
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            return {"success": True, "data": data}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def save_preset(self, name, data):
+        """Write a preset dict to ``<name>.json`` (overwrites existing)."""
+        safe = self._safe_name(name)
+        if not safe:
+            return {"success": False, "error": "无效的预设名称"}
+        path = os.path.join(self.preset_dir, safe)
+        try:
+            with open(path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            return {"success": True, "name": safe[:-5]}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def rename_preset(self, old_name, new_name):
+        """Rename a preset file. Fails if the new name already exists."""
+        old_safe = self._safe_name(old_name)
+        new_safe = self._safe_name(new_name)
+        if not old_safe or not new_safe:
+            return {"success": False, "error": "无效的预设名称"}
+        if old_safe == new_safe:
+            return {"success": True, "name": new_safe[:-5]}
+        old_path = os.path.join(self.preset_dir, old_safe)
+        new_path = os.path.join(self.preset_dir, new_safe)
+        if not os.path.isfile(old_path):
+            return {"success": False, "error": "原预设不存在"}
+        if os.path.exists(new_path):
+            return {"success": False, "error": "已存在同名预设"}
+        try:
+            os.rename(old_path, new_path)
+            return {"success": True, "name": new_safe[:-5]}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def delete_preset(self, name):
+        """Delete a preset file by name."""
+        safe = self._safe_name(name)
+        if not safe:
+            return {"success": False, "error": "无效的预设名称"}
+        path = os.path.join(self.preset_dir, safe)
+        if not os.path.isfile(path):
+            return {"success": False, "error": "预设不存在"}
+        try:
+            os.remove(path)
+            return {"success": True}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
