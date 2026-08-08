@@ -3240,6 +3240,26 @@ class HezlPromptWidget {
 
     }
     
+    // 复制文本到剪贴板(优先 navigator.clipboard, 不可用时回退 execCommand).
+    async _copyText(text) {
+        const s = String(text == null ? '' : text);
+        try {
+            await navigator.clipboard.writeText(s);
+            return true;
+        } catch {
+            const ta = document.createElement('textarea');
+            ta.value = s;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            let ok = false;
+            try { ok = document.execCommand('copy'); } catch {}
+            ta.remove();
+            return ok;
+        }
+    }
+
     showContextMenu(e, path, type, extra = {}) {
         this.hideContextMenu();
         
@@ -3267,6 +3287,7 @@ class HezlPromptWidget {
         } else if (type === 'prompt') {
             // Feature 1: Add "在⬅添词组" and "在➡添词组"
             menuHtml = `
+                <div class="hezl-context-menu-item" data-action="copy-prompt">复制</div>
                 <div class="hezl-context-menu-item" data-action="add-prompt-above">在⬅添词组</div>
                 <div class="hezl-context-menu-item" data-action="add-prompt-below">在➡添词组</div>
                 <div class="hezl-context-menu-item" data-action="edit-prompt">编辑</div>
@@ -3275,6 +3296,8 @@ class HezlPromptWidget {
         } else if (type === 'preview-item') {
             // Feature 3: Right-click on bottom preview items
             menuHtml = `
+                <div class="hezl-context-menu-item" data-action="copy-preview-prompt">复制</div>
+                <div class="hezl-context-menu-item" data-action="edit-preview-prompt">编辑</div>
                 <div class="hezl-context-menu-item" data-action="locate-folder">定位到词组所在目录</div>
                 <div class="hezl-context-menu-item" data-action="enable-prompt">启用</div>
                 <div class="hezl-context-menu-item" data-action="disable-prompt">禁用</div>
@@ -3328,6 +3351,10 @@ class HezlPromptWidget {
                     this.showEditPromptPopover(extra.title, extra.source || path, [e.clientX, e.clientY]);
                 } else if (action === 'delete-prompt') {
                     this.deletePrompt(extra.title, extra.source || path);
+                } else if (action === 'copy-prompt') {
+                    // 复制右侧词组列表中该词组的内容到剪贴板
+                    const p = this.promptsData[extra.index];
+                    this._copyText(p ? (p.content || '') : '');
                 } else if (action === 'locate-folder') {
                     this.locatePromptFolder(extra.folder);
                 } else if (action === 'enable-prompt') {
@@ -3340,6 +3367,14 @@ class HezlPromptWidget {
                     this.updateOutput();
                 } else if (action === 'delete-preview-prompt') {
                     this.removePromptFromBarByIndex(extra.barIndex, extra.promptIndex);
+                } else if (action === 'copy-preview-prompt') {
+                    // 复制词组栏中该词组的内容到剪贴板
+                    const bar = this.bars[extra.barIndex];
+                    const p = bar && bar.prompts[extra.promptIndex];
+                    this._copyText(p ? (p.content || '') : '');
+                } else if (action === 'edit-preview-prompt') {
+                    // 编辑词组栏中的词组(与右侧词组列表的"编辑"功能一致: 改标题/内容并写回 CSV)
+                    this.showEditPromptPopover(extra.title, extra.folder, [e.clientX, e.clientY]);
                 } else if (action === 'add-root-folder') {
                     this.showAddFolderModal('');
                 } else if (action === 'refresh') {
