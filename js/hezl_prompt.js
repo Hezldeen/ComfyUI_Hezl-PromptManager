@@ -623,6 +623,76 @@ const HEZL_PROMPT_CSS = `
     font-size: 13px;
 }
 
+/* 编辑/新建词组 表单弹窗: 更大默认尺寸 + 可拖拽边界调整大小 + 文本框跟随窗口 */
+.hezl-popover.hezl-popover-form {
+    width: 480px;
+    height: 420px;
+    min-width: 320px;
+    min-height: 240px;
+    max-width: calc(100vw - 24px);
+    max-height: calc(100vh - 24px);
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    padding: 12px;
+    overflow: visible;
+}
+.hezl-popover-form > .hezl-popover-header {
+    flex: none;
+}
+.hezl-popover-form > .hezl-form-group {
+    flex: none;
+    margin-bottom: 10px;
+}
+.hezl-popover-form > .hezl-form-group.hezl-form-group-content {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+.hezl-popover-form > .hezl-form-group.hezl-form-group-content .hezl-form-textarea {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    box-sizing: border-box;
+    resize: none;
+    font-family: inherit;
+}
+.hezl-popover-form > .hezl-popover-actions {
+    flex: none;
+    padding-top: 6px;
+}
+/* 调整大小的拖拽手柄(右边缘/下边缘/右下角) */
+.hezl-popover-resize-e,
+.hezl-popover-resize-s,
+.hezl-popover-resize-se {
+    position: absolute;
+    z-index: 20;
+}
+.hezl-popover-resize-e {
+    top: 0;
+    right: -3px;
+    bottom: 0;
+    width: 8px;
+    cursor: ew-resize;
+}
+.hezl-popover-resize-s {
+    left: 0;
+    right: 0;
+    bottom: -3px;
+    height: 8px;
+    cursor: ns-resize;
+}
+.hezl-popover-resize-se {
+    right: -4px;
+    bottom: -4px;
+    width: 16px;
+    height: 16px;
+    cursor: nwse-resize;
+    background: linear-gradient(135deg, transparent 55%, #888 55%);
+    border-radius: 0 0 6px 0;
+}
+
 .hezl-popover-header {
     display: flex;
     justify-content: space-between;
@@ -1557,10 +1627,11 @@ class HezlPromptWidget {
     }
 
     // 在锚点元素(或坐标 [x,y])附近弹出轻量下拉小窗口,返回该 popover 元素.
-    _showPopover(anchor, innerHTML) {
+    // extraClass: 附加样式类,传 'hezl-popover-form' 可使表单弹窗支持拖拽边界调整大小.
+    _showPopover(anchor, innerHTML, extraClass = '') {
         this._closePopover();
         const popover = document.createElement('div');
-        popover.className = 'hezl-popover';
+        popover.className = 'hezl-popover' + (extraClass ? ' ' + extraClass : '');
         popover.innerHTML = innerHTML;
         document.body.appendChild(popover);
 
@@ -1630,6 +1701,50 @@ class HezlPromptWidget {
                 document.addEventListener('mousemove', onMove);
                 document.addEventListener('mouseup', onUp);
             });
+        }
+
+        // 表单弹窗: 支持拖拽边界(右边缘/下边缘/右下角)调整大小
+        if (extraClass && extraClass.includes('hezl-popover-form')) {
+            const MIN_W = 320;
+            const MIN_H = 240;
+            const mkHandle = (cls, dir) => {
+                const h = document.createElement('div');
+                h.className = cls;
+                h.dataset.dir = dir;
+                popover.appendChild(h);
+                h.addEventListener('mousedown', (e) => {
+                    if (e.button !== 0) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const startX = e.clientX;
+                    const startY = e.clientY;
+                    const pr = popover.getBoundingClientRect();
+                    const origW = pr.width;
+                    const origH = pr.height;
+                    popover.style.userSelect = 'none';
+                    const onMove = (ev) => {
+                        const mode = h.dataset.dir;
+                        const maxW = Math.max(MIN_W, window.innerWidth - popover.offsetLeft - 8);
+                        const maxH = Math.max(MIN_H, window.innerHeight - popover.offsetTop - 8);
+                        if (mode === 'e' || mode === 'se') {
+                            popover.style.width = Math.max(MIN_W, Math.min(origW + (ev.clientX - startX), maxW)) + 'px';
+                        }
+                        if (mode === 's' || mode === 'se') {
+                            popover.style.height = Math.max(MIN_H, Math.min(origH + (ev.clientY - startY), maxH)) + 'px';
+                        }
+                    };
+                    const onUp = () => {
+                        popover.style.userSelect = '';
+                        document.removeEventListener('mousemove', onMove);
+                        document.removeEventListener('mouseup', onUp);
+                    };
+                    document.addEventListener('mousemove', onMove);
+                    document.addEventListener('mouseup', onUp);
+                });
+            };
+            mkHandle('hezl-popover-resize-e', 'e');
+            mkHandle('hezl-popover-resize-s', 's');
+            mkHandle('hezl-popover-resize-se', 'se');
         }
         return popover;
     }
@@ -2549,7 +2664,8 @@ class HezlPromptWidget {
                         folder: prompt.folder,
                         barIndex: barIndex,
                         promptIndex: promptIndex,
-                        promptId: prompt.id
+                        promptId: prompt.id,
+                        prompt: prompt
                     });
                 }
             });
@@ -3374,7 +3490,8 @@ class HezlPromptWidget {
                     this._copyText(p ? (p.content || '') : '');
                 } else if (action === 'edit-preview-prompt') {
                     // 编辑词组栏中的词组(与右侧词组列表的"编辑"功能一致: 改标题/内容并写回 CSV)
-                    this.showEditPromptPopover(extra.title, extra.folder, [e.clientX, e.clientY]);
+                    // 传入完整词组对象,避免因词组不在当前文件夹列表中而无法打开编辑窗口
+                    this.showEditPromptPopover(extra.title, extra.folder, [e.clientX, e.clientY], extra.prompt);
                 } else if (action === 'add-root-folder') {
                     this.showAddFolderModal('');
                 } else if (action === 'refresh') {
@@ -3657,15 +3774,16 @@ class HezlPromptWidget {
 
     }
     
-    async showEditPromptPopover(promptTitle, promptSource = null, anchor = null) {
-        const prompt = this.promptsData.find(p => {
+    async showEditPromptPopover(promptTitle, promptSource = null, anchor = null, promptObj = null) {
+        // promptObj 直接传入词组数据(用于词组栏里的词组),避免因不在当前文件夹列表中而找不到
+        const prompt = promptObj || this.promptsData.find(p => {
             const source = p.source || this.currentFolder;
             const targetSource = promptSource || this.currentFolder;
             return p.title === promptTitle && source === targetSource;
         });
         if (!prompt) return;
 
-        const folder = promptSource || this.currentFolder;
+        const folder = promptSource || prompt.folder || this.currentFolder;
 
         const popover = this._showPopover(anchor, `
             <div class="hezl-popover-header">
@@ -3676,7 +3794,7 @@ class HezlPromptWidget {
                 <label class="hezl-form-label">标题</label>
                 <input type="text" class="hezl-form-input" id="hezl-edit-title" value="${this.escapeHtml(prompt.title)}">
             </div>
-            <div class="hezl-form-group">
+            <div class="hezl-form-group hezl-form-group-content">
                 <label class="hezl-form-label">内容</label>
                 <textarea class="hezl-form-textarea" id="hezl-edit-content">${this.escapeHtml(prompt.content)}</textarea>
             </div>
@@ -3684,7 +3802,7 @@ class HezlPromptWidget {
                 <button class="hezl-btn" id="hezl-edit-cancel">取消</button>
                 <button class="hezl-btn success" id="hezl-edit-save">保存</button>
             </div>
-        `);
+        `, 'hezl-popover-form');
 
         const titleInput = popover.querySelector('#hezl-edit-title');
         const contentInput = popover.querySelector('#hezl-edit-content');
@@ -3769,7 +3887,7 @@ class HezlPromptWidget {
                 <label class="hezl-form-label">标题</label>
                 <input type="text" class="hezl-form-input" id="hezl-add-title" placeholder="输入标题">
             </div>
-            <div class="hezl-form-group">
+            <div class="hezl-form-group hezl-form-group-content">
                 <label class="hezl-form-label">内容</label>
                 <textarea class="hezl-form-textarea" id="hezl-add-content" placeholder="输入内容"></textarea>
             </div>
@@ -3777,7 +3895,7 @@ class HezlPromptWidget {
                 <button class="hezl-btn" id="hezl-add-cancel">取消</button>
                 <button class="hezl-btn success" id="hezl-add-save">保存</button>
             </div>
-        `);
+        `, 'hezl-popover-form');
 
         const titleInput = popover.querySelector('#hezl-add-title');
         const contentInput = popover.querySelector('#hezl-add-content');
@@ -3843,7 +3961,7 @@ class HezlPromptWidget {
                 <label class="hezl-form-label">标题</label>
                 <input type="text" class="hezl-form-input" id="hezl-add-title" placeholder="输入标题">
             </div>
-            <div class="hezl-form-group">
+            <div class="hezl-form-group hezl-form-group-content">
                 <label class="hezl-form-label">内容</label>
                 <textarea class="hezl-form-textarea" id="hezl-add-content" placeholder="输入内容"></textarea>
             </div>
@@ -3851,7 +3969,7 @@ class HezlPromptWidget {
                 <button class="hezl-btn" id="hezl-add-cancel">取消</button>
                 <button class="hezl-btn success" id="hezl-add-save">保存</button>
             </div>
-        `);
+        `, 'hezl-popover-form');
 
         const titleInput = popover.querySelector('#hezl-add-title');
         const contentInput = popover.querySelector('#hezl-add-content');
@@ -5102,6 +5220,8 @@ class HezlPromptWidget {
             
             if (result.success) {
                 for (const bar of this.bars) {
+                    // 跳过文本框等非词组栏条目(它们没有 prompts 数组)
+                    if (!bar || bar.type !== 'bar' || !Array.isArray(bar.prompts)) continue;
                     const idsToRemove = new Set();
                     bar.prompts = bar.prompts.filter(p => {
                         if (p.folder === csvPath) {
