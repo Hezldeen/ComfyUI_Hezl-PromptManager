@@ -236,6 +236,72 @@ class CSVDataManager:
         except Exception as e:
             return {"success": False, "error": str(e)}
     
+    def batch_move_prompts(self, source_csv, target_csv, titles):
+        """Move multiple prompts (matched by title) from one CSV to another.
+
+        Both files are rewritten in a single request: the target file is
+        written FIRST so a mid-way failure can only duplicate prompts
+        (never lose them). Returns per-title results so the frontend can
+        show exactly which prompts failed and why.
+        """
+        try:
+            if not source_csv or not str(source_csv).lower().endswith('.csv'):
+                return {"success": False, "error": "Invalid source CSV file path", "moved": [], "failed": []}
+            if not target_csv or not str(target_csv).lower().endswith('.csv'):
+                return {"success": False, "error": "Invalid target CSV file path", "moved": [], "failed": []}
+            if not isinstance(titles, list) or not titles:
+                return {"success": False, "error": "No prompts selected", "moved": [], "failed": []}
+
+            source_path = os.path.join(self.csv_dir, source_csv)
+            target_path = os.path.join(self.csv_dir, target_csv)
+
+            if not os.path.isfile(source_path):
+                return {"success": False, "error": "Source CSV file not found", "moved": [], "failed": []}
+            if not os.path.isfile(target_path):
+                return {"success": False, "error": "Target CSV file not found", "moved": [], "failed": []}
+            if os.path.normpath(source_path) == os.path.normpath(target_path):
+                return {"success": False, "error": "目标CSV与源CSV相同", "moved": [], "failed": []}
+
+            source_prompts = self.read_csv_file(source_path)
+            target_prompts = self.read_csv_file(target_path)
+
+            title_set = set(str(t) for t in titles)
+            target_titles = set(p.get('title', '') for p in target_prompts)
+
+            to_move = []
+            remaining = []
+            moved = []
+            failed = []
+            for p in source_prompts:
+                t = p.get('title', '')
+                if t not in title_set:
+                    remaining.append(p)
+                elif t in target_titles:
+                    failed.append({"title": t, "error": "目标CSV已存在同名词组"})
+                else:
+                    to_move.append(p)
+                    moved.append(t)
+                    target_titles.add(t)
+
+            # Titles that vanished from the source (stale frontend list).
+            found_titles = set(p.get('title', '') for p in source_prompts)
+            for t in title_set:
+                if t not in found_titles:
+                    failed.append({"title": t, "error": "源CSV中未找到该词组"})
+
+            if not to_move:
+                return {"success": False, "error": "没有可移动的词组", "moved": [], "failed": failed}
+
+            # Write target first: on failure prompts are duplicated, not lost.
+            if not self.write_csv_file(target_path, target_prompts + to_move):
+                return {"success": False, "error": "写入目标CSV失败", "moved": [], "failed": failed}
+            if not self.write_csv_file(source_path, remaining):
+                return {"success": False, "error": "词组已写入目标CSV,但从源CSV移除失败", "moved": [], "failed": failed}
+
+            return {"success": True, "moved": moved, "failed": failed}
+        except Exception as e:
+            return {"success": False, "error": str(e), "moved": [], "failed": []}
+
     def rename_folder(self, folder_path, new_name):
         try:
             actual_path = os.path.join(self.csv_dir, folder_path)

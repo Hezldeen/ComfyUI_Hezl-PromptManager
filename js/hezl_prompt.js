@@ -4059,9 +4059,11 @@ class HezlPromptWidget {
                 <div class="hezl-modal-header">批量移动词组到其他CSV文件</div>
                 <div class="hezl-form-group">
                     <label class="hezl-form-label">选择目标CSV文件</label>
+                    <input type="text" class="hezl-form-input" id="hezl-batch-csv-search" placeholder="🔍 输入关键词过滤CSV文件..." autocomplete="off" style="margin-bottom: 6px;">
                     <select class="hezl-form-input" id="hezl-batch-target-csv">
                         ${csvPaths.map(p => `<option value="${this.escapeHtml(p)}">${this.escapeHtml(p)}</option>`).join('')}
                     </select>
+                    <div id="hezl-batch-csv-count" style="font-size: 12px; color: #999; margin-top: 4px;"></div>
                 </div>
                 <div class="hezl-form-group">
                     <label class="hezl-form-label">选择要移动的词组</label>
@@ -4086,6 +4088,41 @@ class HezlPromptWidget {
 
         document.body.appendChild(modal); this._positionModalOverNode(modal);
 
+        // ---- 目标CSV搜索过滤: 输入关键词实时隐藏不匹配的选项 ----
+        const searchInput = modal.querySelector('#hezl-batch-csv-search');
+        const targetSelect = modal.querySelector('#hezl-batch-target-csv');
+        const countInfo = modal.querySelector('#hezl-batch-csv-count');
+        const allOptions = Array.from(targetSelect.querySelectorAll('option'));
+        // 路径分隔符归一化: 用户输入 / 或 \ 都能匹配
+        const normalizeCsvPath = (s) => (s || '').toLowerCase().replace(/\\/g, '/');
+
+        const applyCsvFilter = () => {
+            const normKw = normalizeCsvPath(searchInput.value.trim());
+            let visibleCount = 0;
+            let firstVisible = null;
+            allOptions.forEach(opt => {
+                const match = !normKw || normalizeCsvPath(opt.value).includes(normKw);
+                opt.hidden = !match;
+                if (match) {
+                    visibleCount++;
+                    if (!firstVisible) firstVisible = opt;
+                }
+            });
+            // 当前选中项被过滤掉时, 自动切换到第一个可见项, 避免误选隐藏路径
+            const selectedOpt = targetSelect.options[targetSelect.selectedIndex];
+            if (firstVisible && (!selectedOpt || selectedOpt.hidden)) {
+                targetSelect.value = firstVisible.value;
+            }
+            countInfo.textContent = normKw
+                ? `匹配 ${visibleCount} / ${allOptions.length} 个CSV文件`
+                : `共 ${allOptions.length} 个CSV文件`;
+            countInfo.style.color = visibleCount === 0 ? '#e57373' : '#999';
+        };
+        searchInput.addEventListener('input', applyCsvFilter);
+        applyCsvFilter();
+        // 打开弹窗即聚焦搜索框, 方便直接输入
+        searchInput.focus();
+
         // Select all toggle
         const selectAllCb = modal.querySelector('#hezl-batch-select-all');
         const promptCbs = modal.querySelectorAll('.hezl-batch-prompt-cb');
@@ -4103,70 +4140,79 @@ class HezlPromptWidget {
         });
 
         modal.querySelector('#hezl-modal-move').addEventListener('click', async () => {
-            const targetCsv = modal.querySelector('#hezl-batch-target-csv').value;
-            const selectedIndices = [];
+            const targetCsv = targetSelect.value;
+            // 防护: 当前选中项已被搜索过滤隐藏时阻止误操作
+            const curOpt = targetSelect.options[targetSelect.selectedIndex];
+            if (!curOpt || curOpt.hidden) {
+                alert('没有匹配的目标CSV文件，请修改搜索关键词');
+                return;
+            }
+            const selectedTitles = [];
             promptCbs.forEach(cb => {
                 if (cb.checked) {
-                    selectedIndices.push(parseInt(cb.dataset.index));
+                    selectedTitles.push(prompts[parseInt(cb.dataset.index)].title);
                 }
             });
 
-            if (selectedIndices.length === 0) {
+            if (selectedTitles.length === 0) {
                 alert('请至少选择一个词组');
                 return;
             }
 
-            if (!confirm(`确定要将选中的 ${selectedIndices.length} 个词组移动到 ${targetCsv} 吗？`)) {
+            if (!confirm(`确定要将选中的 ${selectedTitles.length} 个词组移动到 ${targetCsv} 吗？`)) {
                 return;
             }
 
-            let errorCount = 0;
-            for (const idx of selectedIndices) {
-                const p = prompts[idx];
-                try {
-                    // Add to target CSV
-                    const addResult = await this.safeFetchJson('/hezl_prompt/add_prompt', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            folder: targetCsv,
-                            title: p.title,
-                            content: p.content
-                        })
-                    });
-                    if (addResult.success) {
-                        // Delete from source CSV
-                        await this.safeFetchJson('/hezl_prompt/delete_prompt', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                folder: csvPath,
-                                title: p.title
-                            })
-                        });
-                        // Remove from all bars
-                        for (const bar of this.bars) {
-                            for (let i = bar.prompts.length - 1; i >= 0; i--) {
-                                if (bar.prompts[i].title === p.title && bar.prompts[i].folder === csvPath) {
-                                    const pid = bar.prompts[i].id;
-                                    bar.prompts.splice(i, 1);
-                                    delete bar.weights[pid];
-                                    delete bar.disabled[pid];
-                                }
-                            }
+            // 单次请求原子完成"写入目标CSV + 从源CSV移除", 避免逐条请求在
+            // 中途失败时出现"词组被复制而非移动"或误报失败的中间态.
+            let result;
+            try {
+                result = await this.safeFetchJson('/hezl_prompt/batch_move_prompts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        source: csvPath,
+                        target: targetCsv,
+                        titles: selectedTitles
+                    })
+                });
+            } catch (e) {
+                alert('移动失败: ' + e.message);
+                return;
+            }
+
+            const moved = new Set(result.moved || []);
+            const failed = result.failed || [];
+
+            if (moved.size > 0) {
+                // 词组只是换了文件仍然存在: 词组栏中的引用保持有效,
+                // 仅更新其来源路径到目标CSV(与"移动CSV文件"功能的处理一致).
+                for (const item of this.items) {
+                    if (item.type !== 'bar') continue;
+                    for (const p of (item.prompts || [])) {
+                        if (p.folder === csvPath && moved.has(p.title)) {
+                            p.folder = targetCsv;
                         }
-                    } else {
-                        errorCount++;
                     }
-                } catch (e) {
-                    errorCount++;
                 }
+                // 从当前列表移除已移动的词组
+                this.promptsData = this.promptsData.filter(p => {
+                    const source = p.source || this.currentFolder;
+                    return !(source === csvPath && moved.has(p.title));
+                });
             }
 
             modal.remove();
-            if (errorCount > 0) {
-                alert(`移动完成，但有 ${errorCount} 个词组移动失败（可能目标CSV已存在同名词组）`);
+
+            const failedDetail = failed.map(f => `· ${f.title}: ${f.error}`).join('\n');
+            if (!result.success && moved.size === 0) {
+                alert('移动失败: ' + (result.error || '未知错误') + (failedDetail ? '\n' + failedDetail : ''));
+            } else if (failed.length > 0) {
+                alert(`成功移动 ${moved.size} 个词组, ${failed.length} 个失败:\n${failedDetail}`);
+            } else {
+                alert(`成功移动 ${moved.size} 个词组到 ${targetCsv}`);
             }
+
             this.updateFolderCounts();
             this.renderBars();
             this.renderPromptList();
@@ -4280,7 +4326,7 @@ class HezlPromptWidget {
             for (const idx of selectedIndices) {
                 const p = prompts[idx];
                 try {
-                    await this.safeFetchJson('/hezl_prompt/delete_prompt', {
+                    const result = await this.safeFetchJson('/hezl_prompt/delete_prompt', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -4288,9 +4334,14 @@ class HezlPromptWidget {
                             title: p.title
                         })
                     });
-                    // Remove from all bars
-                    for (const bar of this.bars) {
-                        for (let i = bar.prompts.length - 1; i >= 0; i--) {
+                    if (!result || !result.success) {
+                        errorCount++;
+                        continue;
+                    }
+                    // Remove from all bars (skip textboxes which have no prompts)
+                    for (const bar of this.items) {
+                        if (bar.type !== 'bar') continue;
+                        for (let i = (bar.prompts || []).length - 1; i >= 0; i--) {
                             if (bar.prompts[i].title === p.title && bar.prompts[i].folder === csvPath) {
                                 const pid = bar.prompts[i].id;
                                 bar.prompts.splice(i, 1);
@@ -5055,6 +5106,8 @@ class HezlPromptWidget {
                     const newPath = result.path || path;
                     // Update any selected bar entries that reference the old csv path
                     for (const bar of this.bars) {
+                        // 跳过文本框等非词组栏条目(它们没有 prompts 数组)
+                        if (!bar || bar.type !== 'bar' || !Array.isArray(bar.prompts)) continue;
                         for (const p of bar.prompts) {
                             if (p.folder === path) {
                                 p.folder = newPath;
@@ -5148,6 +5201,8 @@ class HezlPromptWidget {
                 if (result.success) {
                     const newPath = result.path || path;
                     for (const bar of this.bars) {
+                        // 跳过文本框等非词组栏条目(它们没有 prompts 数组)
+                        if (!bar || bar.type !== 'bar' || !Array.isArray(bar.prompts)) continue;
                         bar.prompts.forEach(p => {
                             if (p.folder === path) {
                                 p.folder = newPath;
@@ -5267,6 +5322,8 @@ class HezlPromptWidget {
             
             if (result.success) {
                 for (const bar of this.bars) {
+                    // 跳过文本框等非词组栏条目(它们没有 prompts 数组)
+                    if (!bar || bar.type !== 'bar' || !Array.isArray(bar.prompts)) continue;
                     const idsToRemove = new Set();
                     bar.prompts = bar.prompts.filter(p => {
                         if (p.folder === folderPath ||

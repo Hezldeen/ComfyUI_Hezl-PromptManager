@@ -151,6 +151,16 @@ async def delete_prompt(request):
     )
     return web.json_response(result)
 
+@routes.post("/hezl_prompt/batch_move_prompts")
+async def batch_move_prompts(request):
+    data = await request.json()
+    result = data_manager.batch_move_prompts(
+        source_csv=data.get("source", ""),
+        target_csv=data.get("target", ""),
+        titles=data.get("titles", [])
+    )
+    return web.json_response(result)
+
 @routes.post("/hezl_prompt/reorder_prompts")
 async def reorder_prompts(request):
     data = await request.json()
