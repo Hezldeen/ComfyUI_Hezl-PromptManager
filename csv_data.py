@@ -51,7 +51,7 @@ class CSVDataManager:
     
     def count_prompts_in_csv(self, csv_path):
         try:
-            with open(csv_path, 'r', encoding='utf-8') as f:
+            with open(csv_path, 'r', encoding='utf-8-sig') as f:
                 reader = csv.reader(f)
                 header = next(reader, None)
                 if header:
@@ -89,7 +89,7 @@ class CSVDataManager:
     def read_csv_file(self, csv_path, relative_path=""):
         prompts = []
         try:
-            with open(csv_path, 'r', encoding='utf-8') as f:
+            with open(csv_path, 'r', encoding='utf-8-sig') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
                     prompts.append({
@@ -107,7 +107,7 @@ class CSVDataManager:
     def write_csv_file(self, csv_path, prompts):
         try:
             os.makedirs(os.path.dirname(csv_path), exist_ok=True)
-            with open(csv_path, 'w', encoding='utf-8', newline='') as f:
+            with open(csv_path, 'w', encoding='utf-8-sig', newline='') as f:
                 fieldnames = ['title', 'content']
                 writer = csv.DictWriter(f, fieldnames=fieldnames)
                 writer.writeheader()
@@ -495,7 +495,7 @@ class CSVDataManager:
                 csv_path = os.path.join(root, file_name)
                 rel_path = os.path.relpath(csv_path, self.csv_dir)
                 try:
-                    with open(csv_path, 'r', encoding='utf-8') as f:
+                    with open(csv_path, 'r', encoding='utf-8-sig') as f:
                         reader = csv.DictReader(f)
                         for row in reader:
                             title = (row.get('title', '') or '').lower()
